@@ -1,0 +1,290 @@
+@model BookSalesCore.ViewModels.UserListViewModel
+
+@{
+    ViewData["Title"] = "Quản trị người dùng";
+}
+
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-4">
+    <div>
+        <div class="text-muted small mb-1">Quản trị</div>
+        <h1 class="page-title mb-1">Người dùng</h1>
+        <p class="text-muted mb-0">
+            Quản lý tài khoản, vai trò và trạng thái truy cập.
+        </p>
+    </div>
+
+    <a asp-controller="Users"
+       asp-action="Create"
+       class="btn btn-primary">
+        + Tạo tài khoản
+    </a>
+</div>
+
+@if (TempData["SuccessMessage"] is string successMessage)
+{
+    <div class="alert alert-success alert-dismissible fade show" role="alert">
+        @successMessage
+        <button type="button"
+                class="btn-close"
+                data-bs-dismiss="alert"
+                aria-label="Đóng"></button>
+    </div>
+}
+
+@if (TempData["ErrorMessage"] is string errorMessage)
+{
+    <div class="alert alert-danger alert-dismissible fade show" role="alert">
+        @errorMessage
+        <button type="button"
+                class="btn-close"
+                data-bs-dismiss="alert"
+                aria-label="Đóng"></button>
+    </div>
+}
+
+@if (TempData["TemporaryPassword"] is string temporaryPassword)
+{
+    <div class="alert alert-warning" role="alert">
+        <h2 class="h6">Mật khẩu tạm — chỉ hiển thị lần này</h2>
+
+        @if (TempData["CreatedUserName"] is string createdUserName)
+        {
+            <p class="mb-1">
+                Tài khoản: <strong>@createdUserName</strong>
+            </p>
+        }
+
+        @if (TempData["ResetUserName"] is string resetUserName)
+        {
+            <p class="mb-1">
+                Tài khoản: <strong>@resetUserName</strong>
+            </p>
+        }
+
+        <div class="d-flex align-items-center flex-wrap gap-2">
+            <code id="temporaryPassword" class="fs-5">@temporaryPassword</code>
+            <button type="button"
+                    class="btn btn-sm btn-outline-dark"
+                    onclick="copyTemporaryPassword()">
+                Sao chép mật khẩu
+            </button>
+        </div>
+
+        <p class="small mb-0 mt-2">
+            Hãy chuyển mật khẩu trực tiếp cho người dùng.
+            Người dùng phải đổi mật khẩu sau khi đăng nhập.
+            Không chụp màn hình hoặc lưu mật khẩu này ở nơi công khai.
+        </p>
+    </div>
+}
+
+<div class="card shadow-sm">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <h2 class="h6 mb-0">Danh sách tài khoản</h2>
+        <span class="text-muted small">@Model.Users.Count tài khoản</span>
+    </div>
+    <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+            <thead class="table-light">
+                <tr>
+                    <th>Tên đăng nhập</th>
+                    <th>Email</th>
+                    <th>Vai trò</th>
+                    <th>Trạng thái</th>
+                    <th>Đổi mật khẩu</th>
+                    <th class="text-end">Thao tác</th>
+                </tr>
+            </thead>
+            <tbody>
+                @if (Model.Users.Count == 0)
+                {
+                    <tr>
+                        <td colspan="6" class="text-center text-muted py-4">
+                            Chưa có tài khoản nào.
+                        </td>
+                    </tr>
+                }
+                else
+                {
+                    @foreach (var user in Model.Users)
+                    {
+                        <tr>
+                            <td class="fw-semibold">@user.UserName</td>
+                            <td>@user.Email</td>
+                            <td>
+                                @if (user.Role == "Administrator")
+                                {
+                                    <span class="badge text-bg-primary">
+                                        Administrator
+                                    </span>
+                                }
+                                else if (user.Role == "SalesStaff")
+                                {
+                                    <span class="badge text-bg-secondary">
+                                        SalesStaff
+                                    </span>
+                                }
+                                else
+                                {
+                                    <span class="badge text-bg-warning">
+                                        @user.Role
+                                    </span>
+                                }
+                            </td>
+                            <td>
+                                @if (user.IsLockedOut)
+                                {
+                                    <span class="badge text-bg-danger">Đã khóa</span>
+                                }
+                                else
+                                {
+                                    <span class="badge text-bg-success">Đang hoạt động</span>
+                                }
+                            </td>
+                            <td>
+                                @if (user.MustChangePassword)
+                                {
+                                    <span class="badge text-bg-warning">
+                                        Chờ đổi mật khẩu
+                                    </span>
+                                }
+                                else
+                                {
+                                    <span class="text-muted">Đã đổi</span>
+                                }
+                            </td>
+                            <td>
+                                <div class="d-flex justify-content-end flex-wrap gap-2">
+                                    <button type="button"
+                                            class="btn btn-sm btn-outline-secondary"
+                                            data-bs-toggle="collapse"
+                                            data-bs-target="#changeRole-@user.Id"
+                                            aria-expanded="false"
+                                            aria-controls="changeRole-@user.Id">
+                                        Đổi vai trò
+                                    </button>
+
+                                    <form asp-action="ResetPassword"
+                                          asp-route-id="@user.Id"
+                                          method="post"
+                                          onsubmit="return confirm('Cấp mật khẩu tạm mới cho tài khoản @user.UserName?');">
+                                        @Html.AntiForgeryToken()
+                                        <button type="submit"
+                                                class="btn btn-sm btn-outline-primary">
+                                            Cấp lại mật khẩu
+                                        </button>
+                                    </form>
+
+                                    <form asp-action="ToggleLock"
+                                          asp-route-id="@user.Id"
+                                          method="post"
+                                          onsubmit="return confirm('Bạn có chắc muốn @(user.IsLockedOut ? "mở khóa" : "khóa") tài khoản @user.UserName?');">
+                                        @Html.AntiForgeryToken()
+                                        <button type="submit"
+                                                class="btn btn-sm @(user.IsLockedOut ? "btn-outline-success" : "btn-outline-danger")">
+                                            @(user.IsLockedOut ? "Mở khóa" : "Khóa tài khoản")
+                                        </button>
+                                    </form>
+                                </div>
+                            </td>
+                        </tr>
+
+                        <tr class="collapse" id="changeRole-@user.Id">
+                            <td colspan="6" class="bg-body-tertiary">
+                                <div class="p-3">
+                                    <h2 class="h6 mb-3">
+                                        Thay đổi vai trò: @user.UserName
+                                    </h2>
+
+                                    <form asp-controller="Users"
+                                          asp-action="ChangeRole"
+                                          method="post"
+                                          class="row g-3 align-items-end">
+                                        @Html.AntiForgeryToken()
+
+                                        <input type="hidden"
+                                               name="id"
+                                               value="@user.Id" />
+
+                                        <div class="col-md-3">
+                                            <label class="form-label"
+                                                   for="role-@user.Id">
+                                                Vai trò mới
+                                            </label>
+                                            <select class="form-select"
+                                                    id="role-@user.Id"
+                                                    name="role"
+                                                    required>
+                                                <option value="Administrator"
+                                                        selected="@(user.Role == "Administrator" ? "selected" : null)">
+                                                    Administrator
+                                                </option>
+                                                <option value="SalesStaff"
+                                                        selected="@(user.Role == "SalesStaff" ? "selected" : null)">
+                                                    SalesStaff
+                                                </option>
+                                            </select>
+                                        </div>
+
+                                        <div class="col-md-6">
+                                            <label class="form-label"
+                                                   for="reason-@user.Id">
+                                                Lý do thay đổi
+                                            </label>
+                                            <input class="form-control"
+                                                   id="reason-@user.Id"
+                                                   name="reason"
+                                                   type="text"
+                                                   maxlength="500"
+                                                   placeholder="Nhập lý do thay đổi vai trò"
+                                                   required />
+                                        </div>
+
+                                        <div class="col-md-3">
+                                            <button type="submit"
+                                                    class="btn btn-primary"
+                                                    onclick="return confirm('Bạn có chắc muốn thay đổi vai trò của tài khoản @user.UserName?');">
+                                                Lưu thay đổi
+                                            </button>
+                                        </div>
+
+                                        <div class="col-12">
+                                            <p class="small text-muted mb-0">
+                                                Thay đổi vai trò sẽ ảnh hưởng đến quyền truy cập.
+                                                Hãy kiểm tra kỹ trước khi lưu. Không thể tự thay đổi
+                                                vai trò của chính tài khoản đang đăng nhập nếu
+                                                controller áp dụng quy tắc bảo vệ quản trị viên.
+                                            </p>
+                                        </div>
+                                    </form>
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                }
+            </tbody>
+        </table>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        async function copyTemporaryPassword() {
+            const password =
+                document.getElementById("temporaryPassword")?.textContent;
+
+            if (!password) {
+                return;
+            }
+
+            try {
+                await navigator.clipboard.writeText(password);
+                alert("Đã sao chép mật khẩu tạm.");
+            } catch {
+                alert(
+                    "Không thể tự sao chép. Vui lòng chọn và sao chép mật khẩu thủ công."
+                );
+            }
+        }
+    </script>
+}

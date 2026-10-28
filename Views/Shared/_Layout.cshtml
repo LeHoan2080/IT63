@@ -1,0 +1,139 @@
+﻿<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#714b67" />
+    <title>@ViewData["Title"] - Book Sales</title>
+
+    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/BookSalesCore.styles.css" asp-append-version="true" />
+</head>
+<body>
+    @if (User.Identity?.IsAuthenticated == true)
+    {
+        var currentController = ViewContext.RouteData.Values["controller"]?.ToString();
+        <div class="app-shell">
+            <aside class="app-sidebar" id="appSidebar">
+                <a asp-controller="Home" asp-action="Index" class="brand-lockup">
+                    <span class="brand-mark">B</span>
+                    <span>
+                        <strong>Book Sales</strong>
+                        <small>QUẢN LÝ BÁN SÁCH</small>
+                    </span>
+                </a>
+
+                <nav class="sidebar-nav" aria-label="Điều hướng chính">
+                    <div class="sidebar-section-label">KHÔNG GIAN LÀM VIỆC</div>
+                    <a asp-controller="Home" asp-action="Index"
+                       class="sidebar-link @(currentController == "Home" ? "active" : "")">
+                        <span class="sidebar-icon" aria-hidden="true">⌂</span> Tổng quan
+                    </a>
+
+                    <div class="sidebar-section-label">BÁN HÀNG</div>
+                    <a asp-controller="Sales" asp-action="Index"
+                       class="sidebar-link @(currentController == "Sales" ? "active" : "")">
+                        <span class="sidebar-icon" aria-hidden="true">▤</span> Báo giá / Đơn bán
+                    </a>
+                    <a asp-controller="Customers" asp-action="Index"
+                       class="sidebar-link @(currentController == "Customers" ? "active" : "")">
+                        <span class="sidebar-icon" aria-hidden="true">♙</span> Khách hàng
+                    </a>
+
+                    <div class="sidebar-section-label">DANH MỤC</div>
+                    <a asp-controller="Books" asp-action="Index"
+                       class="sidebar-link @(currentController == "Books" ? "active" : "")">
+                        <span class="sidebar-icon" aria-hidden="true">▣</span> Sách
+                    </a>
+
+                    <div class="sidebar-section-label">PHÂN TÍCH</div>
+                    <a asp-controller="Reports" asp-action="Index"
+                       class="sidebar-link @(currentController == "Reports" ? "active" : "")">
+                        <span class="sidebar-icon" aria-hidden="true">▥</span> Báo cáo
+                    </a>
+
+                    @if (User.IsInRole("Administrator"))
+                    {
+                        <div class="sidebar-section-label">CẤU HÌNH</div>
+                        <a asp-controller="Admin" asp-action="Index"
+                           class="sidebar-link @(currentController == "Admin" ? "active" : "")">
+                            <span class="sidebar-icon" aria-hidden="true">⚙</span> Quản trị hệ thống
+                        </a>
+                        <a asp-controller="Users" asp-action="Index"
+                           class="sidebar-link @(currentController == "Users" ? "active" : "")">
+                            <span class="sidebar-icon" aria-hidden="true">⚙</span> Người dùng
+                        </a>
+                        <a asp-controller="AuditLogs" asp-action="Index"
+                           class="sidebar-link @(currentController == "AuditLogs" ? "active" : "")">
+                            <span class="sidebar-icon" aria-hidden="true">◷</span> Nhật ký thao tác
+                        </a>
+                    }
+                </nav>
+
+                <div class="sidebar-footer">
+                    <span class="account-avatar">
+                        @(User.Identity?.Name?.FirstOrDefault().ToString().ToUpperInvariant() ?? "U")
+                    </span>
+                    <span class="account-info">
+                        <strong>@User.Identity?.Name</strong>
+                        <small>@(User.IsInRole("Administrator") ? "Quản trị viên" : "Nhân viên bán hàng")</small>
+                    </span>
+                    <a asp-controller="Account" asp-action="ChangePassword"
+                       class="account-settings" title="Đổi mật khẩu" aria-label="Đổi mật khẩu">⋯</a>
+                </div>
+            </aside>
+
+            <div class="app-main">
+                <header class="app-topbar">
+                    <button class="sidebar-toggle" type="button" aria-label="Mở menu"
+                            aria-controls="appSidebar" aria-expanded="false">
+                        <span></span><span></span><span></span>
+                    </button>
+                    <div class="topbar-context">
+                        <span class="topbar-context-label">BOOK SALES</span>
+                        <span class="topbar-separator">/</span>
+                        <span>@ViewData["Title"]</span>
+                    </div>
+                    <div class="topbar-actions">
+                        <span class="topbar-user">@User.Identity?.Name</span>
+                        <form asp-controller="Account" asp-action="Logout" method="post">
+                            <button type="submit" class="btn btn-sm btn-outline-secondary">Đăng xuất</button>
+                        </form>
+                    </div>
+                </header>
+
+                <main class="app-content" role="main">
+                    @if (TempData["SuccessMessage"] is string successMessage)
+                    {
+                        <div class="alert alert-success alert-dismissible fade show app-alert" role="alert">
+                            @successMessage
+                            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Đóng"></button>
+                        </div>
+                    }
+                    @if (TempData["ErrorMessage"] is string errorMessage)
+                    {
+                        <div class="alert alert-danger alert-dismissible fade show app-alert" role="alert">
+                            @errorMessage
+                            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Đóng"></button>
+                        </div>
+                    }
+                    @RenderBody()
+                </main>
+                <footer class="app-footer">Book Sales · Quản lý bán sách</footer>
+            </div>
+        </div>
+    }
+    else
+    {
+        <main class="auth-shell" role="main">
+            @RenderBody()
+        </main>
+    }
+
+    <script src="~/lib/jquery/dist/jquery.min.js"></script>
+    <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="~/js/site.js" asp-append-version="true"></script>
+    @await RenderSectionAsync("Scripts", required: false)
+</body>
+</html>

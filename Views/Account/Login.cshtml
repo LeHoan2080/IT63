@@ -1,0 +1,76 @@
+
+@model BookSalesCore.ViewModels.LoginViewModel
+
+@{
+    ViewData["Title"] = "Đăng nhập";
+}
+
+<div class="auth-card">
+    <div class="auth-brand">
+        <span class="brand-mark">B</span>
+        <span>
+            <strong>Book Sales</strong>
+            <span class="d-block text-muted small">QUẢN LÝ BÁN SÁCH</span>
+        </span>
+    </div>
+    <h1 class="auth-title">Đăng nhập</h1>
+    <p class="auth-subtitle">Đăng nhập để tiếp tục vào hệ thống bán hàng.</p>
+
+    @if (TempData["SuccessMessage"] is string message)
+    {
+        <div class="alert alert-success" role="alert">
+            @message
+        </div>
+    }
+
+    <form asp-controller="Account"
+          asp-action="Login"
+          asp-route-returnUrl="@ViewData["ReturnUrl"]"
+          method="post">
+
+        <div asp-validation-summary="ModelOnly"
+             class="text-danger mb-3"></div>
+
+        <div class="mb-3">
+            <label asp-for="UserNameOrEmail"
+                   class="form-label"></label>
+
+            <input asp-for="UserNameOrEmail"
+                   class="form-control"
+                   autocomplete="username"
+                   autofocus />
+
+            <span asp-validation-for="UserNameOrEmail"
+                  class="text-danger"></span>
+        </div>
+
+        <div class="mb-3">
+            <label asp-for="Password"
+                   class="form-label"></label>
+
+            <input asp-for="Password"
+                   class="form-control"
+                   autocomplete="current-password" />
+
+            <span asp-validation-for="Password"
+                  class="text-danger"></span>
+        </div>
+
+        <div class="form-check mb-3">
+            <input asp-for="RememberMe"
+                   class="form-check-input" />
+
+            <label asp-for="RememberMe"
+                   class="form-check-label"></label>
+        </div>
+
+        <button type="submit"
+                class="btn btn-primary w-100">
+            Đăng nhập
+        </button>
+    </form>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

@@ -1,0 +1,74 @@
+@model BookSalesCore.ViewModels.BookDetailsViewModel
+
+@{
+    ViewData["Title"] = "Chi tiết sách";
+    var culture = System.Globalization.CultureInfo.GetCultureInfo("vi-VN");
+}
+
+<div class="d-flex flex-wrap justify-content-between align-items-start gap-3 mb-4">
+    <div>
+        <div class="text-muted small mb-1">Danh mục / Sách / @Model.SKU</div>
+        <h1 class="page-title mb-1">@Model.BookTitle</h1>
+        <p class="text-muted mb-0">Thông tin chi tiết mặt hàng trong danh mục sách.</p>
+    </div>
+    <div class="d-flex gap-2">
+        <a asp-action="Index" class="btn btn-outline-secondary">Quay lại danh sách</a>
+        @if (User.IsInRole("Administrator"))
+        {
+            <a asp-action="Edit" asp-route-id="@Model.BookId" class="btn btn-primary">Sửa sách</a>
+        }
+    </div>
+</div>
+
+<div class="row g-3">
+    <div class="col-12 col-xl-8">
+        <section class="card h-100">
+            <div class="card-header">
+                <h2 class="h6 mb-0">Thông tin sách</h2>
+            </div>
+            <div class="card-body">
+                <dl class="row mb-0">
+                    <dt class="col-sm-4 text-muted fw-normal">Mã sách (SKU)</dt>
+                    <dd class="col-sm-8 fw-semibold">@Model.SKU</dd>
+                    <dt class="col-sm-4 text-muted fw-normal">Tên sách</dt>
+                    <dd class="col-sm-8">@Model.BookTitle</dd>
+                    <dt class="col-sm-4 text-muted fw-normal">ISBN</dt>
+                    <dd class="col-sm-8">@(Model.ISBN ?? "—")</dd>
+                    <dt class="col-sm-4 text-muted fw-normal">Thể loại</dt>
+                    <dd class="col-sm-8">@(Model.CategoryName ?? "—")</dd>
+                    <dt class="col-sm-4 text-muted fw-normal">Giá bán</dt>
+                    <dd class="col-sm-8 fw-semibold">@Model.SalePrice.ToString("N0", culture) ₫</dd>
+                    <dt class="col-sm-4 text-muted fw-normal">Trạng thái</dt>
+                    <dd class="col-sm-8">
+                        @if (Model.IsActive)
+                        {
+                            <span class="badge text-bg-success">Đang kinh doanh</span>
+                        }
+                        else
+                        {
+                            <span class="badge text-bg-secondary">Ngừng kinh doanh</span>
+                        }
+                    </dd>
+                </dl>
+            </div>
+        </section>
+    </div>
+    <div class="col-12 col-xl-4">
+        <section class="card h-100">
+            <div class="card-header">
+                <h2 class="h6 mb-0">Thông tin hệ thống</h2>
+            </div>
+            <div class="card-body">
+                <dl class="mb-0">
+                    <dt class="text-muted fw-normal small">Ngày tạo</dt>
+                    <dd>@Model.CreatedAt.ToString("dd/MM/yyyy HH:mm")</dd>
+                    <dt class="text-muted fw-normal small">Cập nhật gần nhất</dt>
+                    <dd class="mb-0">@(Model.UpdatedAt?.ToString("dd/MM/yyyy HH:mm") ?? "Chưa cập nhật")</dd>
+                </dl>
+                <p class="small text-muted mt-3 mb-0">
+                    Không theo dõi tồn kho ở phạm vi MVP. Giá trên chứng từ cũ giữ nguyên theo thời điểm lập.
+                </p>
+            </div>
+        </section>
+    </div>
+</div>

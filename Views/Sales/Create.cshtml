@@ -1,0 +1,194 @@
+@model BookSalesCore.ViewModels.SalesOrderCreateViewModel
+
+@{
+    ViewData["Title"] = "Báo giá mới";
+    var culture = System.Globalization.CultureInfo.GetCultureInfo("vi-VN");
+}
+
+<section class="page-heading">
+    <div>
+        <div class="eyebrow">Bán hàng / Báo giá / Mới</div>
+        <h1 class="page-title">Tạo báo giá</h1>
+        <p class="page-subtitle">Chứng từ mới được lưu ở trạng thái nháp.</p>
+    </div>
+</section>
+
+<form asp-controller="Sales" asp-action="Create" method="post">
+    @Html.AntiForgeryToken()
+    <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
+
+    <section class="app-panel mb-3">
+        <h2 class="panel-title mb-3">Thông tin khách hàng</h2>
+        <div class="row g-3">
+            <div class="col-lg-6">
+                <label asp-for="CustomerId" class="form-label"></label>
+                <select asp-for="CustomerId" asp-items="Model.Customers" class="form-select">
+                    <option value="">-- Chọn khách hàng --</option>
+                </select>
+                <span asp-validation-for="CustomerId" class="text-danger"></span>
+            </div>
+            <div class="col-lg-6">
+                <label asp-for="Note" class="form-label"></label>
+                <input asp-for="Note" class="form-control" maxlength="1000"
+                       placeholder="Ghi chú nội bộ (không bắt buộc)" />
+                <span asp-validation-for="Note" class="text-danger"></span>
+            </div>
+        </div>
+    </section>
+
+    <section class="app-panel">
+        <div class="panel-heading">
+            <div>
+                <h2 class="panel-title">Dòng sản phẩm</h2>
+                <p class="panel-caption">Giá bán hiện tại được lấy từ danh mục; máy chủ tính lại khi lưu.</p>
+            </div>
+            <button type="button" id="addLine" class="btn btn-sm btn-outline-primary">
+                ＋ Thêm dòng
+            </button>
+        </div>
+
+        <div class="table-responsive">
+            <table class="table align-middle mb-0">
+                <thead>
+                    <tr>
+                        <th style="min-width: 260px;">Sách</th>
+                        <th style="width: 130px;">Số lượng</th>
+                        <th class="text-end" style="width: 170px;">Đơn giá</th>
+                        <th class="text-end" style="width: 170px;">Thành tiền</th>
+                        <th style="width: 60px;"></th>
+                    </tr>
+                </thead>
+                <tbody id="lines">
+                    @for (var i = 0; i < Model.Lines.Count; i++)
+                    {
+                        <tr class="order-line">
+                            <td>
+                                <input name="Lines[@i].ExistingLineId" type="hidden" value="" class="existing-line-id" />
+                                <input name="Lines[@i].OriginalBookId" type="hidden" value="" class="original-book-id" />
+                                <select name="Lines[@i].BookId" class="form-select book-select" required>
+                                    <option value="">-- Chọn sách --</option>
+                                    @foreach (var book in Model.Books)
+                                    {
+                                        var bookId = long.Parse(book.Value!);
+                                        var price = Model.BookPrices.GetValueOrDefault(bookId);
+                                        <option value="@book.Value"
+                                                data-price="@price.ToString(System.Globalization.CultureInfo.InvariantCulture)"
+                                                selected="@(book.Value == Model.Lines[i].BookId?.ToString())">
+                                            @book.Text
+                                        </option>
+                                    }
+                                </select>
+                            </td>
+                            <td>
+                                <input name="Lines[@i].Quantity" type="number" min="1" max="100000"
+                                       value="@Model.Lines[i].Quantity" class="form-control quantity-input" required />
+                            </td>
+                            <td class="text-end text-nowrap unit-price">—</td>
+                            <td class="text-end text-nowrap line-total">—</td>
+                            <td>
+                                <button type="button" class="btn btn-sm btn-outline-danger remove-line"
+                                        aria-label="Xóa dòng sách">×</button>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+        <span asp-validation-for="Lines" class="text-danger d-block mt-2"></span>
+        <div class="order-total">
+            <span>Tổng trước thuế</span>
+            <strong id="orderTotal">0 ₫</strong>
+        </div>
+        <p class="small text-muted mb-0 mt-2">
+            Giá trị hiển thị chỉ là ước tính. Đơn giá và tổng tiền chính thức do máy chủ tính khi lưu.
+        </p>
+    </section>
+
+    <div class="d-flex flex-wrap gap-2 mt-3">
+        <button type="submit" class="btn btn-primary">Lưu bản nháp</button>
+        <a asp-controller="Sales" asp-action="Index" class="btn btn-outline-secondary">Hủy</a>
+    </div>
+</form>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+    <script>
+        (() => {
+            const lines = document.getElementById("lines");
+            const addButton = document.getElementById("addLine");
+            const formatter = new Intl.NumberFormat("vi-VN");
+
+            function renumber() {
+                lines.querySelectorAll(".order-line").forEach((row, index) => {
+                    row.querySelectorAll("input, select").forEach((input) => {
+                        const field = input.name.split(".").pop();
+                        input.name = `Lines[${index}].${field}`;
+                    });
+                });
+            }
+
+            function updateTotals() {
+                let total = 0;
+                lines.querySelectorAll(".order-line").forEach((row) => {
+                    const select = row.querySelector(".book-select");
+                    const quantity = Number(row.querySelector(".quantity-input").value) || 0;
+                    const selectedPrice = Number(select.selectedOptions[0]?.dataset.price);
+                    const existingPrice = Number(row.dataset.existingPrice);
+                    const price = row.querySelector(".existing-line-id").value
+                        ? existingPrice
+                        : selectedPrice;
+                    const lineTotal = Number.isFinite(price) ? price * quantity : 0;
+                    row.querySelector(".unit-price").textContent =
+                        Number.isFinite(price) ? `${formatter.format(price)} ₫` : "—";
+                    row.querySelector(".line-total").textContent =
+                        Number.isFinite(price) ? `${formatter.format(lineTotal)} ₫` : "—";
+                    total += lineTotal;
+                });
+                document.getElementById("orderTotal").textContent =
+                    `${formatter.format(total)} ₫`;
+            }
+
+            addButton.addEventListener("click", () => {
+                const row = lines.querySelector(".order-line").cloneNode(true);
+                row.querySelector(".book-select").selectedIndex = 0;
+                row.querySelector(".quantity-input").value = "1";
+                row.querySelector(".existing-line-id").value = "";
+                row.querySelector(".original-book-id").value = "";
+                delete row.dataset.existingPrice;
+                lines.appendChild(row);
+                renumber();
+                updateTotals();
+            });
+
+            lines.addEventListener("change", (event) => {
+                if (event.target.matches(".book-select")) {
+                    const row = event.target.closest(".order-line");
+                    if (row.querySelector(".book-select").value !==
+                        row.querySelector(".original-book-id").value) {
+                        row.querySelector(".existing-line-id").value = "";
+                        delete row.dataset.existingPrice;
+                    }
+                }
+                updateTotals();
+            });
+            lines.addEventListener("input", updateTotals);
+            lines.addEventListener("click", (event) => {
+                const button = event.target.closest(".remove-line");
+                if (!button) return;
+                const rows = lines.querySelectorAll(".order-line");
+                if (rows.length === 1) {
+                    rows[0].querySelector(".book-select").selectedIndex = 0;
+                    rows[0].querySelector(".quantity-input").value = "1";
+                    rows[0].querySelector(".existing-line-id").value = "";
+                    delete rows[0].dataset.existingPrice;
+                } else {
+                    button.closest(".order-line").remove();
+                    renumber();
+                }
+                updateTotals();
+            });
+
+            updateTotals();
+        })();
+    </script>
+}

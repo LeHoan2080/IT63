@@ -1,0 +1,105 @@
+@model BookSalesCore.ViewModels.CustomerListViewModel
+
+@{
+    ViewData["Title"] = "Khách hàng";
+}
+
+<section class="page-heading">
+    <div>
+        <div class="eyebrow">Bán hàng / Khách hàng</div>
+        <h1 class="page-title">Khách hàng</h1>
+        <p class="page-subtitle">Danh bạ khách hàng và lịch sử bán hàng.</p>
+    </div>
+    @if (User.IsInRole("Administrator") || User.IsInRole("SalesStaff"))
+    {
+        <a asp-action="Create" class="btn btn-primary">＋ Thêm khách hàng</a>
+    }
+</section>
+
+<form method="get" asp-action="Index" class="app-panel mb-3">
+    <div class="row g-3 align-items-end">
+        <div class="col-md-6">
+            <label for="searchTerm" class="form-label">Tìm kiếm</label>
+            <input id="searchTerm" name="searchTerm" value="@Model.SearchTerm"
+                   class="form-control" placeholder="Mã, tên, điện thoại hoặc email" />
+        </div>
+        <div class="col-md-3">
+            <label for="status" class="form-label">Trạng thái</label>
+            <select id="status" name="status" class="form-select">
+                <option value="">Tất cả</option>
+                <option value="active" selected="@(Model.Status == "active")">Đang hoạt động</option>
+                <option value="inactive" selected="@(Model.Status == "inactive")">Ngừng hoạt động</option>
+            </select>
+        </div>
+        <div class="col-md-3 d-flex gap-2">
+            <button type="submit" class="btn btn-primary">Lọc</button>
+            <a asp-action="Index" class="btn btn-outline-secondary">Xóa</a>
+        </div>
+    </div>
+</form>
+
+<section class="app-panel">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h2 class="panel-title">Danh bạ khách hàng</h2>
+        <span class="small text-muted">@Model.TotalItems khách hàng</span>
+    </div>
+    <div class="table-responsive">
+        <table class="table app-table align-middle mb-0">
+            <thead>
+                <tr>
+                    <th>Mã khách hàng</th>
+                    <th>Tên khách hàng</th>
+                    <th>Số điện thoại</th>
+                    <th>Email</th>
+                    <th>Trạng thái</th>
+                    <th class="text-end">Thao tác</th>
+                </tr>
+            </thead>
+            <tbody>
+                @if (Model.Customers.Count == 0)
+                {
+                    <tr><td colspan="6" class="text-center text-muted py-5">Không tìm thấy khách hàng.</td></tr>
+                }
+                else
+                {
+                    @foreach (var customer in Model.Customers)
+                    {
+                        <tr>
+                            <td class="fw-semibold">@customer.CustomerCode</td>
+                            <td>
+                                @customer.CustomerName
+                                @if (customer.CustomerCode == "CUS-WALKIN")
+                                {
+                                    <span class="badge text-bg-info ms-1">Khách lẻ</span>
+                                }
+                            </td>
+                            <td>@(customer.Phone ?? "—")</td>
+                            <td>@(customer.Email ?? "—")</td>
+                            <td>
+                                <span class="status-badge @(customer.IsActive ? "status-confirmed" : "status-cancelled")">
+                                    @(customer.IsActive ? "Đang hoạt động" : "Ngừng hoạt động")
+                                </span>
+                            </td>
+                            <td class="text-end text-nowrap">
+                                <a asp-action="Details" asp-route-id="@customer.CustomerId"
+                                   class="btn btn-sm btn-outline-secondary">Xem</a>
+                                <a asp-controller="Sales" asp-action="Index"
+                                   asp-route-customerId="@customer.CustomerId"
+                                   class="btn btn-sm btn-outline-secondary">Chứng từ</a>
+                                @if (customer.CustomerCode != "CUS-WALKIN")
+                                {
+                                    <a asp-action="Edit" asp-route-id="@customer.CustomerId"
+                                       class="btn btn-sm btn-outline-primary">Sửa</a>
+                                }
+                            </td>
+                        </tr>
+                    }
+                }
+            </tbody>
+        </table>
+    </div>
+    @if (ViewData["Pagination"] is BookSalesCore.ViewModels.PaginationViewModel pagination)
+    {
+        @await Html.PartialAsync("_Pagination", pagination)
+    }
+</section>

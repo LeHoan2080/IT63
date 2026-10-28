@@ -1,0 +1,127 @@
+@model BookSalesCore.ViewModels.BookListViewModel
+
+@{
+    ViewData["Title"] = "Danh mục sách";
+    var isAdmin = User.IsInRole("Administrator");
+}
+
+<div class="d-flex flex-wrap justify-content-between align-items-start gap-3 mb-4">
+    <div>
+        <div class="text-muted small mb-1">Danh mục</div>
+        <h1 class="page-title mb-1">Sách</h1>
+        <p class="text-muted mb-0">Tra cứu sách và quản lý danh mục kinh doanh.</p>
+    </div>
+    @if (isAdmin)
+    {
+        <a asp-action="Create" class="btn btn-primary">
+            Thêm sách
+        </a>
+    }
+</div>
+
+@if (TempData["SuccessMessage"] is string message)
+{
+    <div class="alert alert-success alert-dismissible fade show" role="alert">
+        @message
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Đóng"></button>
+    </div>
+}
+
+<section class="card mb-4">
+    <div class="card-header">
+        <h2 class="h6 mb-0">Tìm kiếm và bộ lọc</h2>
+    </div>
+    <div class="card-body">
+        <form method="get" asp-action="Index" class="row g-3 align-items-end">
+            <div class="col-12 col-lg-6">
+                <label for="searchTerm" class="form-label">Từ khóa</label>
+                <input id="searchTerm" name="searchTerm" value="@Model.SearchTerm"
+                       class="form-control" placeholder="SKU, ISBN hoặc tên sách" />
+            </div>
+            <div class="col-12 col-md-5 col-lg-3">
+                <label for="status" class="form-label">Trạng thái</label>
+                <select id="status" name="status" class="form-select">
+                    <option value="">Tất cả trạng thái</option>
+                    <option value="active" selected="@(Model.Status == "active")">Đang kinh doanh</option>
+                    <option value="inactive" selected="@(Model.Status == "inactive")">Ngừng kinh doanh</option>
+                </select>
+            </div>
+            <div class="col-12 col-md-7 col-lg-3 d-flex gap-2">
+                <button type="submit" class="btn btn-primary">
+                    Tìm kiếm
+                </button>
+                <a asp-action="Index" class="btn btn-outline-secondary">Xóa lọc</a>
+            </div>
+        </form>
+    </div>
+</section>
+
+<section class="card">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <h2 class="h6 mb-0">Danh sách sách</h2>
+        <span class="text-muted small">@Model.TotalItems bản ghi</span>
+    </div>
+    <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+            <thead>
+                <tr>
+                    <th>Mã sách</th>
+                    <th>ISBN</th>
+                    <th>Tên sách</th>
+                    <th>Thể loại</th>
+                    <th class="text-end">Giá bán</th>
+                    <th>Trạng thái</th>
+                    <th class="text-end">Thao tác</th>
+                </tr>
+            </thead>
+            <tbody>
+                @if (Model.Books.Count == 0)
+                {
+                    <tr>
+                        <td colspan="7" class="text-center text-muted py-5">
+                            Không tìm thấy sách phù hợp với bộ lọc.
+                        </td>
+                    </tr>
+                }
+                else
+                {
+                    @foreach (var book in Model.Books)
+                    {
+                        <tr>
+                            <td class="text-nowrap fw-semibold">@book.SKU</td>
+                            <td>@(book.ISBN ?? "—")</td>
+                            <td>@book.BookTitle</td>
+                            <td>@(book.CategoryName ?? "—")</td>
+                            <td class="text-end text-nowrap">@book.SalePrice.ToString("N0") ₫</td>
+                            <td>
+                                @if (book.IsActive)
+                                {
+                                    <span class="badge text-bg-success">Đang kinh doanh</span>
+                                }
+                                else
+                                {
+                                    <span class="badge text-bg-secondary">Ngừng kinh doanh</span>
+                                }
+                            </td>
+                            <td class="text-end text-nowrap">
+                                <a asp-action="Details" asp-route-id="@book.BookId"
+                                   class="btn btn-sm btn-outline-secondary">Xem</a>
+                                @if (isAdmin)
+                                {
+                                    <a asp-action="Edit" asp-route-id="@book.BookId"
+                                       class="btn btn-sm btn-outline-primary">Sửa</a>
+                                }
+                            </td>
+                        </tr>
+                    }
+                }
+            </tbody>
+        </table>
+    </div>
+    @if (ViewData["Pagination"] is BookSalesCore.ViewModels.PaginationViewModel pagination)
+    {
+        <div class="card-body border-top">
+            @await Html.PartialAsync("_Pagination", pagination)
+        </div>
+    }
+</section>

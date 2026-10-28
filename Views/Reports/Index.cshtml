@@ -1,0 +1,282 @@
+ @model BookSalesCore.ViewModels.Reports.ReportsIndexViewModel
+
+@{
+    ViewData["Title"] = "Báo cáo kinh doanh";
+
+    var viCulture = System.Globalization.CultureInfo.GetCultureInfo("vi-VN");
+    var fromValue = Model.FromDate?.ToString("yyyy-MM-dd") ?? "";
+    var toValue = Model.ToDate?.ToString("yyyy-MM-dd") ?? "";
+}
+
+<div>
+    <div class="d-flex flex-wrap justify-content-between align-items-start gap-3 mb-4">
+        <div>
+            <div class="text-muted small mb-1">Phân tích</div>
+            <h1 class="page-title mb-1">Báo cáo kinh doanh</h1>
+            <p class="text-muted mb-0">Tổng hợp hoạt động bán hàng trong khoảng thời gian.</p>
+        </div>
+        <button type="button" class="btn btn-outline-secondary" onclick="window.print()">In báo cáo</button>
+    </div>
+
+    <div asp-validation-summary="All" class="text-danger mb-3"></div>
+
+    <section class="card mb-4">
+        <div class="card-header">
+            <h2 class="h6 mb-0">Khoảng thời gian báo cáo</h2>
+        </div>
+        <div class="card-body">
+            <form asp-controller="Reports"
+                  asp-action="Index"
+                  method="get"
+                  class="row g-3 align-items-end">
+                <div class="col-md-4">
+                    <label for="fromDate" class="form-label">Từ ngày</label>
+                    <input id="fromDate"
+                           name="fromDate"
+                           type="date"
+                           class="form-control"
+                           value="@fromValue" />
+                </div>
+
+                <div class="col-md-4">
+                    <label for="toDate" class="form-label">Đến ngày</label>
+                    <input id="toDate"
+                           name="toDate"
+                           type="date"
+                           class="form-control"
+                           value="@toValue" />
+                </div>
+
+                <div class="col-md-4 d-flex gap-2">
+                    <button type="submit" class="btn btn-primary">
+                        Xem báo cáo
+                    </button>
+                    <a asp-controller="Reports"
+                       asp-action="Index"
+                       class="btn btn-outline-secondary">
+                        30 ngày gần nhất
+                    </a>
+                </div>
+            </form>
+        </div>
+    </section>
+
+    <div class="row g-3 mb-4">
+        <div class="col-12 col-md-6 col-xl-3">
+            <div class="card h-100">
+                <div class="card-body">
+                    <div class="text-muted small">Tổng giá trị đơn đã xác nhận</div>
+                    <div class="fs-4 fw-bold text-success">
+                        @Model.TotalSales.ToString("N0", viCulture) ₫
+                    </div>
+                    <div class="small text-muted">
+                        Trước thuế, không phải số tiền đã thu
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-12 col-md-6 col-xl-3">
+            <div class="card h-100">
+                <div class="card-body">
+                    <div class="text-muted small">Đơn đã xác nhận, lập trong kỳ</div>
+                    <div class="fs-4 fw-bold">
+                        @Model.ConfirmedOrderCount
+                    </div>
+                    <div class="small text-muted">
+                        Theo ngày lập, trạng thái hiện tại
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-12 col-md-6 col-xl-3">
+            <div class="card h-100">
+                <div class="card-body">
+                    <div class="text-muted small">Tổng chứng từ lập trong kỳ</div>
+                    <div class="fs-4 fw-bold">
+                        @Model.TotalOrderCount
+                    </div>
+                    <div class="small text-muted">
+                        Bao gồm mọi trạng thái
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-12 col-md-6 col-xl-3">
+            <div class="card h-100">
+                <div class="card-body">
+                    <div class="text-muted small">Đơn đã hủy lập trong kỳ</div>
+                    <div class="fs-4 fw-bold text-danger">
+                        @Model.CancelledCount
+                    </div>
+                    <div class="small text-muted">
+                        Không tính vào doanh số
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <section class="card mb-4">
+        <div class="card-header">
+            <h2 class="h5 mb-0">Số chứng từ theo trạng thái</h2>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-bordered align-middle mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Trạng thái</th>
+                            <th class="text-end">Số chứng từ</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>Nháp (Draft)</td>
+                            <td class="text-end">@Model.DraftCount</td>
+                        </tr>
+                        <tr>
+                            <td>Đã gửi (Sent)</td>
+                            <td class="text-end">@Model.SentCount</td>
+                        </tr>
+                        <tr>
+                            <td>Đã xác nhận (Confirmed)</td>
+                            <td class="text-end">@Model.ConfirmedOrderCount</td>
+                        </tr>
+                        <tr>
+                            <td>Đã hủy (Cancelled)</td>
+                            <td class="text-end">@Model.CancelledCount</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            <p class="text-muted small mt-2 mb-0">Bảng này lọc theo ngày lập chứng từ và trạng thái hiện tại.</p>
+        </div>
+    </section>
+
+    <section class="card mb-4">
+        <div class="card-header">
+            <h2 class="h5 mb-0">Doanh số theo ngày xác nhận</h2>
+        </div>
+        <div class="card-body">
+            @if (Model.DailySales.Count == 0)
+            {
+                <p class="text-muted mb-0">
+                    Không có đơn đã xác nhận trong khoảng thời gian này.
+                </p>
+            }
+            else
+            {
+                <div class="table-responsive">
+                    <table class="table table-striped align-middle mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Ngày xác nhận</th>
+                                <th class="text-end">Số đơn</th>
+                                <th class="text-end">Tổng giá trị</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var item in Model.DailySales)
+                            {
+                                <tr>
+                                    <td>@item.Date.ToString("dd/MM/yyyy")</td>
+                                    <td class="text-end">@item.OrderCount</td>
+                                    <td class="text-end">
+                                        @item.TotalSales.ToString("N0", viCulture) ₫
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                        <tfoot>
+                            <tr class="fw-bold">
+                                <td>Tổng cộng</td>
+                                <td class="text-end">
+                                    @Model.DailySales.Sum(x => x.OrderCount)
+                                </td>
+                                <td class="text-end">
+                                    @Model.TotalSales.ToString("N0", viCulture) ₫
+                                </td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            }
+        </div>
+    </section>
+
+    <section class="card">
+        <div class="card-header">
+            <h2 class="h5 mb-0">Top 10 sách bán chạy</h2>
+        </div>
+        <div class="card-body">
+            @if (Model.TopBooks.Count == 0)
+            {
+                <p class="text-muted mb-0">
+                    Chưa có dữ liệu sách bán trong khoảng thời gian này.
+                </p>
+            }
+            else
+            {
+                <div class="table-responsive">
+                    <table class="table table-striped align-middle mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th style="width: 70px;">Hạng</th>
+                                <th>Mã sách</th>
+                                <th>Tên sách</th>
+                                <th class="text-end">Số lượng bán</th>
+                                <th class="text-end">Giá trị dòng hàng</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @{
+                                var rank = 1;
+                            }
+                            @foreach (var book in Model.TopBooks)
+                            {
+                                <tr>
+                                    <td>@rank</td>
+                                    <td>@book.SKU</td>
+                                    <td>@book.BookTitle</td>
+                                    <td class="text-end">@book.TotalQuantity</td>
+                                    <td class="text-end">
+                                        @book.TotalSales.ToString("N0", viCulture) ₫
+                                    </td>
+                                </tr>
+                                rank++;
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </div>
+    </section>
+
+    <p class="text-muted small mt-3">
+        Thời gian hiển thị theo giờ Việt Nam. Doanh số chỉ tính các chứng từ
+        hiện ở trạng thái Confirmed, dựa trên thời điểm xác nhận. Chứng từ
+        đã hủy không được tính. Báo cáo không bao gồm thuế, chiết khấu,
+        thanh toán hoặc công nợ.
+    </p>
+</div>
+
+<style>
+    @@media print {
+        .btn,
+        form {
+            display: none !important;
+        }
+
+        .card {
+            box-shadow: none !important;
+            break-inside: avoid;
+        }
+
+        body {
+            font-size: 12px;
+        }
+    }
+</style>

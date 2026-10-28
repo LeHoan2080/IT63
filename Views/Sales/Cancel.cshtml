@@ -1,0 +1,41 @@
+
+@model BookSalesCore.ViewModels.SalesOrderCancelViewModel
+
+@{
+    ViewData["Title"] = "Hủy chứng từ";
+}
+
+<div class="mb-4">
+    <div class="text-muted small mb-1">Bán hàng / Chứng từ</div>
+    <h1 class="page-title mb-1">Hủy chứng từ bán hàng</h1>
+    <p class="text-muted mb-0">Hủy chứng từ cần có lý do và không thể hoàn tác.</p>
+</div>
+
+<form asp-action="Cancel" method="post" class="card"
+      onsubmit="return confirm('Chứng từ sẽ được hủy và không thể khôi phục. Bạn có muốn tiếp tục?');">
+    @Html.AntiForgeryToken()
+    <input asp-for="SalesOrderId" type="hidden" />
+
+    <div class="card-header">
+        <h2 class="h6 mb-0">Lý do hủy</h2>
+    </div>
+    <div class="card-body">
+        <div class="alert alert-warning">
+            Thao tác hủy không xóa chứng từ khỏi hệ thống.
+            Vui lòng nhập lý do trước khi tiếp tục.
+        </div>
+        <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
+        <label asp-for="Reason" class="form-label"></label>
+        <textarea asp-for="Reason" class="form-control" rows="4" maxlength="500" required></textarea>
+        <span asp-validation-for="Reason" class="text-danger"></span>
+    </div>
+    <div class="card-footer d-flex justify-content-end gap-2">
+        <a asp-action="Details" asp-route-id="@Model.SalesOrderId"
+           class="btn btn-outline-secondary">Quay lại</a>
+        <button type="submit" class="btn btn-danger">Xác nhận hủy</button>
+    </div>
+</form>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

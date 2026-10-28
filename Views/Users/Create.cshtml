@@ -1,0 +1,86 @@
+
+@model BookSalesCore.ViewModels.UserCreateViewModel
+
+@{
+    ViewData["Title"] = "Tạo tài khoản";
+}
+
+<div class="mb-4">
+    <div class="text-muted small mb-1">Quản trị / Người dùng</div>
+    <a asp-controller="Users"
+       asp-action="Index"
+       class="text-decoration-none">
+        ← Quay lại quản trị người dùng
+    </a>
+
+    <h1 class="page-title mt-3 mb-1">Tạo tài khoản người dùng</h1>
+    <p class="text-muted">
+        Hệ thống sinh mật khẩu tạm sau khi tạo. Người dùng phải đổi mật khẩu
+        khi đăng nhập lần đầu.
+    </p>
+</div>
+
+<div class="row">
+    <div class="col-lg-7 col-xl-6">
+        <form asp-action="Create" method="post" class="card">
+            @Html.AntiForgeryToken()
+            <div class="card-header">
+                <h2 class="h6 mb-0">Thông tin tài khoản</h2>
+            </div>
+            <div class="card-body">
+
+                    <div asp-validation-summary="ModelOnly"
+                         class="text-danger mb-3"></div>
+
+                    <div class="mb-3">
+                        <label asp-for="UserName" class="form-label"></label>
+                        <input asp-for="UserName"
+                               class="form-control"
+                               autocomplete="off"
+                               placeholder="Ví dụ: nguyenvana" />
+                        <span asp-validation-for="UserName"
+                              class="text-danger"></span>
+                    </div>
+
+                    <div class="mb-3">
+                        <label asp-for="Email" class="form-label"></label>
+                        <input asp-for="Email"
+                               type="email"
+                               class="form-control"
+                               autocomplete="off"
+                               placeholder="name@example.com" />
+                        <span asp-validation-for="Email"
+                              class="text-danger"></span>
+                    </div>
+
+                    <div class="mb-4">
+                        <label asp-for="Role" class="form-label"></label>
+                        <select asp-for="Role" class="form-select">
+                            <option value="SalesStaff">
+                                SalesStaff — Nhân viên bán hàng
+                            </option>
+                            <option value="Administrator">
+                                Administrator — Quản trị viên
+                            </option>
+                        </select>
+                        <span asp-validation-for="Role"
+                              class="text-danger"></span>
+                    </div>
+
+                    <div class="alert alert-info">
+                        Mật khẩu tạm được tạo tự động và chỉ hiển thị sau
+                        khi tạo thành công. Không ghi mật khẩu vào log.
+                    </div>
+
+            </div>
+            <div class="card-footer d-flex justify-content-end gap-2">
+                <a asp-action="Index" class="btn btn-outline-secondary">Hủy</a>
+                <button type="submit" class="btn btn-primary">Tạo tài khoản</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

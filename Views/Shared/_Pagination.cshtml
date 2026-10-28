@@ -1,0 +1,132 @@
+
+@model BookSalesCore.ViewModels.PaginationViewModel
+
+@{
+    var currentPage = Math.Max(1, Model.Page);
+    var totalPages = Model.TotalPages;
+
+    var previousRoute = new Dictionary<string, object?>();
+    var nextRoute = new Dictionary<string, object?>();
+    var firstRoute = new Dictionary<string, object?>();
+    var lastRoute = new Dictionary<string, object?>();
+
+    foreach (var item in Model.RouteValues)
+    {
+        previousRoute[item.Key] = item.Value;
+        nextRoute[item.Key] = item.Value;
+        firstRoute[item.Key] = item.Value;
+        lastRoute[item.Key] = item.Value;
+    }
+
+    previousRoute["page"] = Math.Max(1, currentPage - 1);
+    nextRoute["page"] = Math.Min(Math.Max(1, totalPages), currentPage + 1);
+    firstRoute["page"] = 1;
+    lastRoute["page"] = Math.Max(1, totalPages);
+
+    previousRoute["pageSize"] = Model.PageSize;
+    nextRoute["pageSize"] = Model.PageSize;
+    firstRoute["pageSize"] = Model.PageSize;
+    lastRoute["pageSize"] = Model.PageSize;
+
+    var startPage = Math.Max(1, currentPage - 2);
+    var endPage = Math.Min(totalPages, currentPage + 2);
+}
+
+@if (Model.TotalItems > 0)
+{
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mt-3">
+        <div class="d-flex flex-wrap align-items-center gap-2">
+            <span class="text-muted">
+                Hiển thị @Model.StartItem–@Model.EndItem
+                trong tổng số @Model.TotalItems bản ghi
+            </span>
+
+            <form method="get"
+                  action="@Url.Action(Model.Action, Model.Controller)"
+                  class="d-flex align-items-center gap-2">
+
+                @foreach (var item in Model.RouteValues)
+                {
+                    <input type="hidden"
+                           name="@item.Key"
+                           value="@item.Value" />
+                }
+
+                <input type="hidden" name="page" value="1" />
+
+                <label for="pageSize" class="form-label mb-0">
+                    Số dòng:
+                </label>
+
+                <select id="pageSize"
+                        name="pageSize"
+                        class="form-select form-select-sm"
+                        style="width: auto;"
+                        onchange="this.form.submit()">
+
+                    @foreach (var size in Model.PageSizeOptions)
+                    {
+                        if (Model.PageSize == size)
+                        {
+                            <option value="@size" selected>@size</option>
+                        }
+                        else
+                        {
+                            <option value="@size">@size</option>
+                        }
+                    }
+                </select>
+            </form>
+        </div>
+
+        <nav aria-label="Điều hướng phân trang">
+            <ul class="pagination pagination-sm mb-0">
+
+                <li class="page-item @(currentPage <= 1 ? "disabled" : "")">
+                    <a class="page-link"
+                       href="@Url.Action(Model.Action, Model.Controller, firstRoute)"
+                       aria-label="Trang đầu">«</a>
+                </li>
+
+                <li class="page-item @(currentPage <= 1 ? "disabled" : "")">
+                    <a class="page-link"
+                       href="@Url.Action(Model.Action, Model.Controller, previousRoute)"
+                       aria-label="Trang trước">‹</a>
+                </li>
+
+                @for (var p = startPage; p <= endPage; p++)
+                {
+                    var pageRoute = new Dictionary<string, object?>();
+
+                    foreach (var item in Model.RouteValues)
+                    {
+                        pageRoute[item.Key] = item.Value;
+                    }
+
+                    pageRoute["page"] = p;
+                    pageRoute["pageSize"] = Model.PageSize;
+
+                    <li class="page-item @(p == currentPage ? "active" : "")">
+                        <a class="page-link"
+                           href="@Url.Action(Model.Action, Model.Controller, pageRoute)">
+                            @p
+                        </a>
+                    </li>
+                }
+
+                <li class="page-item @(currentPage >= totalPages ? "disabled" : "")">
+                    <a class="page-link"
+                       href="@Url.Action(Model.Action, Model.Controller, nextRoute)"
+                       aria-label="Trang sau">›</a>
+                </li>
+
+                <li class="page-item @(currentPage >= totalPages ? "disabled" : "")">
+                    <a class="page-link"
+                       href="@Url.Action(Model.Action, Model.Controller, lastRoute)"
+                       aria-label="Trang cuối">»</a>
+                </li>
+
+            </ul>
+        </nav>
+    </div>
+}

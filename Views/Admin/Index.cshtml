@@ -1,0 +1,71 @@
+@{
+    ViewData["Title"] = "Quản trị hệ thống";
+}
+
+<div class="mb-4">
+    <div class="text-muted small mb-1">Cấu hình</div>
+    <h1 class="page-title mb-1">Quản trị hệ thống</h1>
+    <p class="text-muted mb-0">Truy cập nhanh các chức năng quản lý và theo dõi hoạt động.</p>
+</div>
+
+<div class="row g-3 mb-4">
+    <div class="col-12 col-sm-6 col-xl-3">
+        <div class="card h-100">
+            <div class="card-body">
+                <div class="text-muted small">Tài khoản</div>
+                <div class="fs-3 fw-semibold">@ViewBag.UserCount</div>
+                <a asp-controller="Users" asp-action="Index" class="small">Quản lý người dùng</a>
+            </div>
+        </div>
+    </div>
+    <div class="col-12 col-sm-6 col-xl-3">
+        <div class="card h-100">
+            <div class="card-body">
+                <div class="text-muted small">Sách đang kinh doanh</div>
+                <div class="fs-3 fw-semibold">@ViewBag.ActiveBookCount</div>
+                <a asp-controller="Books" asp-action="Index" class="small">Mở danh mục sách</a>
+            </div>
+        </div>
+    </div>
+    <div class="col-12 col-sm-6 col-xl-3">
+        <div class="card h-100">
+            <div class="card-body">
+                <div class="text-muted small">Khách hàng hoạt động</div>
+                <div class="fs-3 fw-semibold">@ViewBag.CustomerCount</div>
+                <a asp-controller="Customers" asp-action="Index" class="small">Mở danh bạ khách hàng</a>
+            </div>
+        </div>
+    </div>
+    <div class="col-12 col-sm-6 col-xl-3">
+        <div class="card h-100">
+            <div class="card-body">
+                <div class="text-muted small">Chứng từ đang xử lý</div>
+                <div class="fs-3 fw-semibold">@ViewBag.OpenOrderCount</div>
+                <a asp-controller="Sales" asp-action="Index" class="small">Mở bán hàng</a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<section class="card">
+    <div class="card-header">
+        <h2 class="h6 mb-0">Công cụ quản trị</h2>
+    </div>
+    <div class="list-group list-group-flush">
+        <a asp-controller="Users" asp-action="Index"
+           class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
+            <span>Quản lý người dùng và vai trò</span>
+            <span aria-hidden="true">›</span>
+        </a>
+        <a asp-controller="AuditLogs" asp-action="Index"
+           class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
+            <span>Nhật ký kiểm toán</span>
+            <span aria-hidden="true">›</span>
+        </a>
+        <a asp-controller="Reports" asp-action="Index"
+           class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
+            <span>Báo cáo kinh doanh</span>
+            <span aria-hidden="true">›</span>
+        </a>
+    </div>
+</section>

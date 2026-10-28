@@ -1,0 +1,25 @@
+## .NET build outputs
+bin/
+obj/
+artifacts/
+TestResults/
+
+## IDE and local workspace settings
+.vs/
+.idea/
+.vscode/
+
+## Local databases and user-specific configuration
+*.mdf
+*.ldf
+*.db
+*.sqlite
+*.sqlite3
+appsettings.Local.json
+appsettings.*.Local.json
+
+## User-specific files
+*.user
+*.suo
+*.userosscache
+*.sln.docstates

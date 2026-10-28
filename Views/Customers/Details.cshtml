@@ -1,0 +1,162 @@
+@model BookSalesCore.ViewModels.CustomerDetailsViewModel
+
+@{
+    ViewData["Title"] = "Chi tiết khách hàng";
+    var culture = System.Globalization.CultureInfo.GetCultureInfo("vi-VN");
+    string GetStatusText(string status) => status switch
+    {
+        "Draft" => "Bản nháp",
+        "Sent" => "Đã gửi",
+        "Confirmed" => "Đã xác nhận",
+        "Cancelled" => "Đã hủy",
+        _ => status
+    };
+}
+
+<div class="d-flex flex-wrap justify-content-between align-items-start gap-3 mb-4">
+    <div>
+        <div class="text-muted small mb-1">Bán hàng / Khách hàng / @Model.CustomerCode</div>
+        <h1 class="page-title mb-1">@Model.CustomerName</h1>
+        <p class="text-muted mb-0">Thông tin khách hàng và lịch sử chứng từ bán hàng.</p>
+    </div>
+    <div class="d-flex flex-wrap gap-2">
+        <a asp-action="Index" class="btn btn-outline-secondary">Quay lại danh sách</a>
+        @if (!Model.IsWalkInCustomer)
+        {
+            <a asp-action="Edit" asp-route-id="@Model.CustomerId" class="btn btn-outline-primary">Sửa khách hàng</a>
+        }
+        @if (Model.IsActive)
+        {
+            <a asp-controller="Sales" asp-action="Create" asp-route-customerId="@Model.CustomerId"
+               class="btn btn-primary">Tạo báo giá</a>
+        }
+    </div>
+</div>
+
+<div class="row g-3 mb-4">
+    <div class="col-12 col-lg-7">
+        <section class="card h-100">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h2 class="h6 mb-0">Thông tin khách hàng</h2>
+                @if (Model.IsWalkInCustomer)
+                {
+                    <span class="badge text-bg-info">Khách lẻ hệ thống</span>
+                }
+            </div>
+            <div class="card-body">
+                <dl class="row mb-0">
+                    <dt class="col-sm-4 text-muted fw-normal">Mã khách hàng</dt>
+                    <dd class="col-sm-8 fw-semibold">@Model.CustomerCode</dd>
+                    <dt class="col-sm-4 text-muted fw-normal">Tên khách hàng</dt>
+                    <dd class="col-sm-8">@Model.CustomerName</dd>
+                    <dt class="col-sm-4 text-muted fw-normal">Số điện thoại</dt>
+                    <dd class="col-sm-8">@(Model.Phone ?? "—")</dd>
+                    <dt class="col-sm-4 text-muted fw-normal">Email</dt>
+                    <dd class="col-sm-8">@(Model.Email ?? "—")</dd>
+                    <dt class="col-sm-4 text-muted fw-normal">Địa chỉ</dt>
+                    <dd class="col-sm-8">@(Model.Address ?? "—")</dd>
+                    <dt class="col-sm-4 text-muted fw-normal">Trạng thái</dt>
+                    <dd class="col-sm-8">
+                        @if (Model.IsActive)
+                        {
+                            <span class="badge text-bg-success">Đang hoạt động</span>
+                        }
+                        else
+                        {
+                            <span class="badge text-bg-secondary">Ngừng hoạt động</span>
+                        }
+                    </dd>
+                </dl>
+            </div>
+        </section>
+    </div>
+    <div class="col-12 col-lg-5">
+        <div class="row g-3 h-100">
+            <div class="col-6">
+                <section class="card h-100">
+                    <div class="card-body">
+                        <div class="text-muted small">Tổng chứng từ</div>
+                        <div class="fs-3 fw-semibold">@Model.TotalOrders</div>
+                        <div class="small text-muted">Trong phạm vi tài khoản</div>
+                    </div>
+                </section>
+            </div>
+            <div class="col-6">
+                <section class="card h-100">
+                    <div class="card-body">
+                        <div class="text-muted small">Đơn đã xác nhận</div>
+                        <div class="fs-3 fw-semibold">@Model.ConfirmedOrders</div>
+                        <div class="small text-muted">Trạng thái hiện tại</div>
+                    </div>
+                </section>
+            </div>
+            <div class="col-12">
+                <section class="card h-100">
+                    <div class="card-body">
+                        <div class="text-muted small">Giá trị đơn đã xác nhận</div>
+                        <div class="fs-4 fw-semibold text-success">@Model.ConfirmedSales.ToString("N0", culture) ₫</div>
+                        <div class="small text-muted">Không bao gồm chứng từ đã hủy; không phải số tiền đã thu.</div>
+                    </div>
+                </section>
+            </div>
+        </div>
+    </div>
+</div>
+
+<section class="card">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <h2 class="h6 mb-0">Lịch sử chứng từ</h2>
+        <span class="text-muted small">@Model.TotalOrders chứng từ</span>
+    </div>
+    <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+            <thead>
+                <tr>
+                    <th>Số chứng từ</th>
+                    <th>Ngày lập</th>
+                    <th>Khách hàng trên chứng từ</th>
+                    <th>Trạng thái</th>
+                    <th class="text-end">Tổng tiền</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                @if (Model.SalesOrders.Count == 0)
+                {
+                    <tr>
+                        <td colspan="6" class="text-center text-muted py-5">
+                            Chưa có chứng từ trong phạm vi tài khoản của bạn.
+                        </td>
+                    </tr>
+                }
+                else
+                {
+                    @foreach (var order in Model.SalesOrders)
+                    {
+                        <tr>
+                            <td class="fw-semibold">@order.OrderNumber</td>
+                            <td class="text-nowrap">@order.OrderDate.ToString("dd/MM/yyyy HH:mm")</td>
+                            <td>@order.CustomerName</td>
+                            <td>
+                                <span class="status-badge status-@order.Status.ToLowerInvariant()">
+                                    @GetStatusText(order.Status)
+                                </span>
+                            </td>
+                            <td class="text-end text-nowrap">@order.TotalAmount.ToString("N0", culture) ₫</td>
+                            <td class="text-end">
+                                <a asp-controller="Sales" asp-action="Details" asp-route-id="@order.SalesOrderId"
+                                   class="btn btn-sm btn-outline-primary">Mở</a>
+                            </td>
+                        </tr>
+                    }
+                }
+            </tbody>
+        </table>
+    </div>
+    @if (ViewData["Pagination"] is BookSalesCore.ViewModels.PaginationViewModel pagination)
+    {
+        <div class="card-body border-top">
+            @await Html.PartialAsync("_Pagination", pagination)
+        </div>
+    }
+</section>

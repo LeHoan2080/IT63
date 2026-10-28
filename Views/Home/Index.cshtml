@@ -1,0 +1,157 @@
+@model BookSalesCore.ViewModels.DashboardViewModel
+
+@{
+    ViewData["Title"] = "Tổng quan";
+    var culture = System.Globalization.CultureInfo.GetCultureInfo("vi-VN");
+    var statusText = new Dictionary<string, string>
+    {
+        ["Draft"] = "Bản nháp",
+        ["Sent"] = "Đã gửi",
+        ["Confirmed"] = "Đã xác nhận",
+        ["Cancelled"] = "Đã hủy"
+    };
+}
+
+<section class="page-heading">
+    <div>
+        <div class="eyebrow">Bán hàng / Tổng quan</div>
+        <h1 class="page-title">Tổng quan bán hàng</h1>
+        <p class="page-subtitle">
+            Hiệu quả bán hàng từ @Model.FromDate.ToString("dd/MM/yyyy")
+            đến @Model.ToDate.ToString("dd/MM/yyyy")
+        </p>
+    </div>
+    <a asp-controller="Sales" asp-action="Create" class="btn btn-primary">
+        <span aria-hidden="true">＋</span> Tạo báo giá
+    </a>
+</section>
+
+<div class="row g-3 dashboard-metrics">
+    <div class="col-sm-6 col-xl-4">
+        <article class="metric-card metric-card-primary">
+            <div class="metric-label">Giá trị đơn đã xác nhận</div>
+            <div class="metric-value">@Model.TotalSales.ToString("N0", culture) ₫</div>
+            <div class="metric-footnote">Trong 30 ngày gần nhất · trước thuế</div>
+            <span class="metric-mark" aria-hidden="true">₫</span>
+        </article>
+    </div>
+    <div class="col-sm-6 col-xl-4">
+        <article class="metric-card">
+            <div class="metric-label">Báo giá chờ xử lý</div>
+            <div class="metric-value">@Model.PendingQuotationCount</div>
+            <div class="metric-footnote">Bản nháp và báo giá đã gửi</div>
+            <span class="metric-mark metric-mark-warning" aria-hidden="true">◷</span>
+        </article>
+    </div>
+    <div class="col-sm-6 col-xl-4">
+        <article class="metric-card">
+            <div class="metric-label">Đơn đã xác nhận</div>
+            <div class="metric-value">@Model.ConfirmedOrderCount</div>
+            <div class="metric-footnote">Xác nhận trong 30 ngày gần nhất</div>
+            <span class="metric-mark metric-mark-success" aria-hidden="true">✓</span>
+        </article>
+    </div>
+</div>
+
+<div class="row g-3 mt-1">
+    <div class="col-xl-5">
+        <section class="app-panel h-100">
+            <div class="panel-heading">
+                <div>
+                    <h2 class="panel-title">Sách bán chạy</h2>
+                    <p class="panel-caption">Theo số lượng trong các đơn đã xác nhận</p>
+                </div>
+                <a asp-controller="Reports" asp-action="Index" class="panel-link">Báo cáo</a>
+            </div>
+
+            @if (Model.TopBooks.Count == 0)
+            {
+                <div class="empty-state">
+                    <span class="empty-state-icon" aria-hidden="true">▤</span>
+                    <p>Chưa có sách được bán trong khoảng thời gian này.</p>
+                </div>
+            }
+            else
+            {
+                <div class="list-group list-group-flush dashboard-book-list">
+                    @for (var index = 0; index < Model.TopBooks.Count; index++)
+                    {
+                        var book = Model.TopBooks[index];
+                        <div class="list-group-item dashboard-book-row">
+                            <span class="rank-pill">@($"{index + 1:00}")</span>
+                            <div class="flex-grow-1 min-w-0">
+                                <div class="book-row-title text-truncate">@book.BookTitle</div>
+                                <div class="book-row-meta">@book.SKU · @book.Quantity cuốn</div>
+                            </div>
+                            <strong class="book-row-total">
+                                @book.TotalSales.ToString("N0", culture) ₫
+                            </strong>
+                        </div>
+                    }
+                </div>
+            }
+        </section>
+    </div>
+
+    <div class="col-xl-7">
+        <section class="app-panel h-100">
+            <div class="panel-heading">
+                <div>
+                    <h2 class="panel-title">Chứng từ gần đây</h2>
+                    <p class="panel-caption">Các báo giá và đơn bán hàng được cập nhật gần nhất</p>
+                </div>
+                <a asp-controller="Sales" asp-action="Index" class="panel-link">Tất cả chứng từ</a>
+            </div>
+
+            @if (Model.RecentOrders.Count == 0)
+            {
+                <div class="empty-state">
+                    <span class="empty-state-icon" aria-hidden="true">▧</span>
+                    <p>Chưa có chứng từ bán hàng.</p>
+                    <a asp-controller="Sales" asp-action="Create" class="btn btn-sm btn-outline-primary">
+                        Tạo báo giá đầu tiên
+                    </a>
+                </div>
+            }
+            else
+            {
+                <div class="table-responsive">
+                    <table class="table app-table align-middle mb-0">
+                        <thead>
+                            <tr>
+                                <th>Chứng từ</th>
+                                <th>Khách hàng</th>
+                                <th>Ngày lập</th>
+                                <th>Trạng thái</th>
+                                <th class="text-end">Tổng tiền</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var order in Model.RecentOrders)
+                            {
+                                <tr>
+                                    <td>
+                                        <a asp-controller="Sales" asp-action="Details"
+                                           asp-route-id="@order.SalesOrderId" class="fw-semibold">
+                                            @order.OrderNumber
+                                        </a>
+                                    </td>
+                                    <td>@order.CustomerName</td>
+                                    <td>@order.OrderDate.ToString("dd/MM/yyyy")</td>
+                                    <td>
+                                        <span class="status-badge status-@order.Status.ToLowerInvariant()">
+                                            @statusText.GetValueOrDefault(order.Status, order.Status)
+                                        </span>
+                                    </td>
+                                    <td class="text-end text-nowrap">
+                                        @order.TotalAmount.ToString("N0", culture) ₫
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </section>
+    </div>
+</div>

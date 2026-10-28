@@ -1,0 +1,193 @@
+@model BookSalesCore.Models.Entities.SalesOrder
+
+@{
+    ViewData["Title"] = Model.OrderNumber;
+    var culture = System.Globalization.CultureInfo.GetCultureInfo("vi-VN");
+    var canManage = ViewData["CanManageOrder"] is bool manage && manage;
+    var canCancelConfirmed = ViewData["CanCancelConfirmed"] is bool cancelConfirmed && cancelConfirmed;
+    var history = ViewData["OrderHistory"] as List<BookSalesCore.ViewModels.SalesOrderAuditEventViewModel>
+        ?? new List<BookSalesCore.ViewModels.SalesOrderAuditEventViewModel>();
+    var orderLocalTime = (DateTime)ViewData["LocalOrderDate"]!;
+    var statusText = Model.Status switch
+    {
+        "Draft" => "Bản nháp",
+        "Sent" => "Đã gửi",
+        "Confirmed" => "Đã xác nhận",
+        "Cancelled" => "Đã hủy",
+        _ => Model.Status
+    };
+    var actionText = new Dictionary<string, string>
+    {
+        ["Created"] = "Tạo báo giá",
+        ["Updated"] = "Cập nhật bản nháp",
+        ["Sent"] = "Đánh dấu đã gửi",
+        ["Confirmed"] = "Xác nhận đơn bán",
+        ["Cancelled"] = "Hủy chứng từ"
+    };
+}
+
+<section class="page-heading">
+    <div>
+        <div class="eyebrow">
+            <a asp-controller="Sales" asp-action="Index">Bán hàng</a>
+            / @Model.OrderNumber
+        </div>
+        <h1 class="page-title">@Model.OrderNumber</h1>
+        <p class="page-subtitle">Thông tin báo giá và lịch sử xử lý chứng từ.</p>
+    </div>
+    <div class="d-flex flex-wrap gap-2">
+        @if (canManage && Model.Status == "Draft")
+        {
+            <a asp-action="Edit" asp-route-id="@Model.SalesOrderId"
+               class="btn btn-outline-primary">Sửa bản nháp</a>
+        }
+        @if (canManage && Model.Status == "Draft")
+        {
+            <form asp-action="Send" asp-route-id="@Model.SalesOrderId" method="post">
+                @Html.AntiForgeryToken()
+                <button type="submit" class="btn btn-outline-primary">Đánh dấu đã gửi</button>
+            </form>
+        }
+        @if (canManage && (Model.Status is "Draft" or "Sent"))
+        {
+            <form asp-action="Confirm" asp-route-id="@Model.SalesOrderId" method="post">
+                @Html.AntiForgeryToken()
+                <button type="submit" class="btn btn-primary">Xác nhận</button>
+            </form>
+        }
+        @if (canManage &&
+             ((Model.Status is "Draft" or "Sent") ||
+              (Model.Status == "Confirmed" && canCancelConfirmed)))
+        {
+            <a asp-action="Cancel" asp-route-id="@Model.SalesOrderId"
+               class="btn btn-outline-danger">Hủy chứng từ</a>
+        }
+        <a asp-controller="Sales" asp-action="Index" class="btn btn-outline-secondary">Quay lại</a>
+    </div>
+</section>
+
+<div class="row g-3">
+    <div class="col-xl-8">
+        <section class="app-panel mb-3">
+            <div class="panel-heading">
+                <div>
+                    <h2 class="panel-title">Thông tin chứng từ</h2>
+                    <p class="panel-caption">Báo giá và đơn bán hàng dùng chung một hồ sơ.</p>
+                </div>
+                <span class="status-badge status-@Model.Status.ToLowerInvariant()">@statusText</span>
+            </div>
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <div class="detail-label">Khách hàng</div>
+                    <div class="fw-semibold">@Model.CustomerNameSnapshot</div>
+                    <div class="text-muted small">@Model.Customer.CustomerCode</div>
+                </div>
+                <div class="col-md-6">
+                    <div class="detail-label">Người phụ trách</div>
+                    <div>@ViewData["CreatedByName"]</div>
+                </div>
+                <div class="col-md-6">
+                    <div class="detail-label">Ngày lập</div>
+                    <div>@orderLocalTime.ToString("dd/MM/yyyy HH:mm")</div>
+                </div>
+                @if (Model.Note is not null)
+                {
+                    <div class="col-12">
+                        <div class="detail-label">Ghi chú</div>
+                        <div class="note-content">@Model.Note</div>
+                    </div>
+                }
+                @if (Model.Status == "Cancelled")
+                {
+                    <div class="col-12">
+                        <div class="detail-label">Lý do hủy</div>
+                        <div>@Model.CancellationReason</div>
+                    </div>
+                }
+            </div>
+        </section>
+
+        <section class="app-panel">
+            <div class="panel-heading">
+                <div>
+                    <h2 class="panel-title">Dòng sản phẩm</h2>
+                    <p class="panel-caption">Đơn giá được lưu tại thời điểm thêm dòng.</p>
+                </div>
+            </div>
+            <div class="table-responsive">
+                <table class="table app-table align-middle mb-0">
+                    <thead>
+                        <tr>
+                            <th>Mã sách</th>
+                            <th>Tên sách</th>
+                            <th class="text-end">Số lượng</th>
+                            <th class="text-end">Đơn giá</th>
+                            <th class="text-end">Thành tiền</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var line in Model.Lines)
+                        {
+                            <tr>
+                                <td>@line.SKUSnapshot</td>
+                                <td>@line.BookTitleSnapshot</td>
+                                <td class="text-end">@line.Quantity.ToString("N0", culture)</td>
+                                <td class="text-end text-nowrap">@line.UnitPrice.ToString("N0", culture) ₫</td>
+                                <td class="text-end text-nowrap">@line.LineTotal.ToString("N0", culture) ₫</td>
+                            </tr>
+                        }
+                    </tbody>
+                    <tfoot>
+                        <tr class="fw-semibold">
+                            <td colspan="4" class="text-end">Tổng trước thuế</td>
+                            <td class="text-end text-nowrap">@Model.TotalAmount.ToString("N0", culture) ₫</td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+        </section>
+    </div>
+
+    <div class="col-xl-4">
+        <section class="app-panel">
+            <div class="panel-heading">
+                <div>
+                    <h2 class="panel-title">Lịch sử hoạt động</h2>
+                    <p class="panel-caption">Thao tác trạng thái và người thực hiện.</p>
+                </div>
+            </div>
+            @if (history.Count == 0)
+            {
+                <p class="text-muted small mb-0">Chưa có sự kiện được ghi nhận.</p>
+            }
+            else
+            {
+                <ol class="activity-timeline">
+                    @foreach (var item in history)
+                    {
+                        <li>
+                            <span class="timeline-dot"></span>
+                            <div class="activity-title">
+                                @actionText.GetValueOrDefault(item.Action, item.Action)
+                                @if (item.NewValue is not null)
+                                {
+                                    <span class="text-muted fw-normal">
+                                        · @item.OldValue → @item.NewValue
+                                    </span>
+                                }
+                            </div>
+                            <div class="activity-meta">
+                                @item.LocalCreatedAt.ToString("dd/MM/yyyy HH:mm")
+                                · @item.ActorName
+                            </div>
+                            @if (!string.IsNullOrWhiteSpace(item.Reason))
+                            {
+                                <div class="activity-reason">@item.Reason</div>
+                            }
+                        </li>
+                    }
+                </ol>
+            }
+        </section>
+    </div>
+</div>

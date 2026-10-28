@@ -1,0 +1,124 @@
+@model BookSalesCore.ViewModels.SalesOrderListViewModel
+
+@{
+    ViewData["Title"] = "Báo giá / Đơn bán";
+    var culture = System.Globalization.CultureInfo.GetCultureInfo("vi-VN");
+    string GetStatusText(string status) => status switch
+    {
+        "Draft" => "Bản nháp",
+        "Sent" => "Đã gửi",
+        "Confirmed" => "Đã xác nhận",
+        "Cancelled" => "Đã hủy",
+        _ => status
+    };
+}
+
+<section class="page-heading">
+    <div>
+        <div class="eyebrow">Bán hàng / Chứng từ</div>
+        <h1 class="page-title">Báo giá / Đơn bán</h1>
+        <p class="page-subtitle">Theo dõi vòng đời báo giá và đơn bán hàng.</p>
+    </div>
+    @if (User.IsInRole("Administrator") || User.IsInRole("SalesStaff"))
+    {
+        <a asp-action="Create" class="btn btn-primary">＋ Tạo báo giá</a>
+    }
+</section>
+
+<form asp-controller="Sales" asp-action="Index" method="get" class="app-panel mb-3">
+    <div class="row g-3 align-items-end">
+        <div class="col-lg-4">
+            <label for="searchTerm" class="form-label">Tìm kiếm</label>
+            <input id="searchTerm" name="searchTerm" value="@Model.SearchTerm"
+                   class="form-control" placeholder="Số chứng từ, mã hoặc tên khách hàng" />
+        </div>
+        <div class="col-sm-6 col-lg-2">
+            <label for="status" class="form-label">Trạng thái</label>
+            <select id="status" name="status" class="form-select">
+                <option value="">Tất cả</option>
+                <option value="Draft" selected="@(Model.Status == "Draft")">Bản nháp</option>
+                <option value="Sent" selected="@(Model.Status == "Sent")">Đã gửi</option>
+                <option value="Confirmed" selected="@(Model.Status == "Confirmed")">Đã xác nhận</option>
+                <option value="Cancelled" selected="@(Model.Status == "Cancelled")">Đã hủy</option>
+            </select>
+        </div>
+        <div class="col-sm-6 col-lg-2">
+            <label for="fromDate" class="form-label">Từ ngày</label>
+            <input id="fromDate" name="fromDate" type="date" class="form-control"
+                   value="@Model.FromDate?.ToString("yyyy-MM-dd")" />
+        </div>
+        <div class="col-sm-6 col-lg-2">
+            <label for="toDate" class="form-label">Đến ngày</label>
+            <input id="toDate" name="toDate" type="date" class="form-control"
+                   value="@Model.ToDate?.ToString("yyyy-MM-dd")" />
+        </div>
+        <div class="col-sm-6 col-lg-2 d-flex gap-2">
+            @if (Model.CustomerId.HasValue)
+            {
+                <input type="hidden" name="customerId" value="@Model.CustomerId" />
+            }
+            <button type="submit" class="btn btn-primary">Lọc</button>
+            <a asp-action="Index" asp-route-customerId="@Model.CustomerId"
+               class="btn btn-outline-secondary">Xóa</a>
+        </div>
+    </div>
+    @if (Model.CustomerId.HasValue)
+    {
+        <div class="small text-muted mt-3">Đang xem lịch sử chứng từ của một khách hàng.</div>
+    }
+</form>
+
+<div asp-validation-summary="All" class="text-danger mb-3"></div>
+
+<section class="app-panel">
+    @if (Model.SalesOrders.Count == 0)
+    {
+        <div class="empty-state">
+            <span class="empty-state-icon" aria-hidden="true">▤</span>
+            <p>Không tìm thấy chứng từ phù hợp.</p>
+        </div>
+    }
+    else
+    {
+        <div class="table-responsive">
+            <table class="table app-table align-middle mb-0">
+                <thead>
+                    <tr>
+                        <th>Số chứng từ</th>
+                        <th>Ngày lập</th>
+                        <th>Khách hàng</th>
+                        <th>Trạng thái</th>
+                        <th class="text-end">Tổng tiền</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var order in Model.SalesOrders)
+                    {
+                        <tr>
+                            <td>
+                                <a asp-action="Details" asp-route-id="@order.SalesOrderId" class="fw-semibold">
+                                    @order.OrderNumber
+                                </a>
+                            </td>
+                            <td>@order.OrderDate.ToString("dd/MM/yyyy HH:mm")</td>
+                            <td>
+                                <div>@order.CustomerNameSnapshot</div>
+                                <small class="text-muted">@order.Customer.CustomerCode</small>
+                            </td>
+                            <td>
+                                <span class="status-badge status-@order.Status.ToLowerInvariant()">
+                                    @GetStatusText(order.Status)
+                                </span>
+                            </td>
+                            <td class="text-end text-nowrap">@order.TotalAmount.ToString("N0", culture) ₫</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+    @if (ViewData["Pagination"] is BookSalesCore.ViewModels.PaginationViewModel pagination)
+    {
+        @await Html.PartialAsync("_Pagination", pagination)
+    }
+</section>

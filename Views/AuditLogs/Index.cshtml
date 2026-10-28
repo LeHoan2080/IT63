@@ -1,0 +1,176 @@
+@model List<BookSalesCore.ViewModels.AuditLogListItemViewModel>
+
+@{
+    ViewData["Title"] = "Nhật ký kiểm toán";
+    var currentPage = (int)ViewBag.Page;
+    var pageSize = (int)ViewBag.PageSize;
+    var totalItems = (int)ViewBag.TotalItems;
+    var totalPages = (int)ViewBag.TotalPages;
+    var searchTerm = ViewBag.SearchTerm as string ?? "";
+    var actionFilter = ViewBag.ActionFilter as string ?? "";
+    var entityName = ViewBag.EntityName as string ?? "";
+    var firstItem = totalItems == 0 ? 0 : (currentPage - 1) * pageSize + 1;
+    var lastItem = Math.Min(currentPage * pageSize, totalItems);
+    TimeZoneInfo vietnamTimeZone;
+    try
+    {
+        vietnamTimeZone = TimeZoneInfo.FindSystemTimeZoneById(
+            OperatingSystem.IsWindows() ? "SE Asia Standard Time" : "Asia/Ho_Chi_Minh");
+    }
+    catch (TimeZoneNotFoundException)
+    {
+        vietnamTimeZone = TimeZoneInfo.Utc;
+    }
+    catch (InvalidTimeZoneException)
+    {
+        vietnamTimeZone = TimeZoneInfo.Utc;
+    }
+}
+
+<div class="mb-4">
+    <div class="text-muted small mb-1">Quản trị</div>
+    <h1 class="page-title mb-1">Nhật ký kiểm toán</h1>
+    <p class="text-muted mb-0">Tra cứu thao tác quan trọng, người thực hiện và thay đổi liên quan.</p>
+</div>
+
+<section class="card mb-4">
+    <div class="card-header">
+        <h2 class="h6 mb-0">Bộ lọc nhật ký</h2>
+    </div>
+    <div class="card-body">
+        <form asp-controller="AuditLogs" asp-action="Index" method="get" class="row g-3 align-items-end">
+            <div class="col-12 col-lg-5">
+                <label for="searchTerm" class="form-label">Từ khóa</label>
+                <input type="text" id="searchTerm" name="searchTerm" value="@searchTerm"
+                       class="form-control" placeholder="Mã đối tượng, người dùng, nội dung..." />
+            </div>
+            <div class="col-12 col-md-4 col-lg-3">
+                <label for="actionFilter" class="form-label">Thao tác</label>
+                <select id="actionFilter" name="actionFilter" class="form-select">
+                    <option value="">Tất cả thao tác</option>
+                    <option value="Sent" selected="@(actionFilter == "Sent")">Gửi chứng từ</option>
+                    <option value="Confirmed" selected="@(actionFilter == "Confirmed")">Xác nhận chứng từ</option>
+                    <option value="Cancelled" selected="@(actionFilter == "Cancelled")">Hủy chứng từ</option>
+                    <option value="RoleChanged" selected="@(actionFilter == "RoleChanged")">Thay đổi vai trò</option>
+                    <option value="Created" selected="@(actionFilter == "Created")">Tạo mới</option>
+                    <option value="Updated" selected="@(actionFilter == "Updated")">Cập nhật</option>
+                </select>
+            </div>
+            <div class="col-12 col-md-4 col-lg-2">
+                <label for="entityName" class="form-label">Đối tượng</label>
+                <select id="entityName" name="entityName" class="form-select">
+                    <option value="">Tất cả</option>
+                    <option value="SalesOrder" selected="@(entityName == "SalesOrder")">Chứng từ bán hàng</option>
+                    <option value="User" selected="@(entityName == "User")">Người dùng</option>
+                </select>
+            </div>
+            <div class="col-12 col-md-4 col-lg-2 d-flex gap-2">
+                <button type="submit" class="btn btn-primary">
+                    Lọc
+                </button>
+                <a asp-action="Index" class="btn btn-outline-secondary">Xóa</a>
+            </div>
+        </form>
+    </div>
+</section>
+
+<section class="card">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <h2 class="h6 mb-0">Lịch sử hoạt động</h2>
+        <span class="text-muted small">Hiển thị @firstItem–@lastItem / @totalItems bản ghi</span>
+    </div>
+    <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+            <thead>
+                <tr>
+                    <th>Thời gian</th>
+                    <th>Người thực hiện</th>
+                    <th>Thao tác</th>
+                    <th>Đối tượng</th>
+                    <th>Giá trị cũ</th>
+                    <th>Giá trị mới</th>
+                    <th>Lý do</th>
+                </tr>
+            </thead>
+            <tbody>
+                @if (Model.Count == 0)
+                {
+                    <tr>
+                        <td colspan="7" class="text-center text-muted py-5">
+                            Không tìm thấy nhật ký phù hợp.
+                        </td>
+                    </tr>
+                }
+                else
+                {
+                    @foreach (var log in Model)
+                    {
+                        <tr>
+                            <td class="text-nowrap">
+                                @TimeZoneInfo.ConvertTimeFromUtc(
+                                    DateTime.SpecifyKind(log.CreatedAt, DateTimeKind.Utc),
+                                    vietnamTimeZone).ToString("dd/MM/yyyy HH:mm:ss")
+                            </td>
+                            <td>@log.ActorName</td>
+                            <td>
+                                @switch (log.Action)
+                                {
+                                    case "Sent":
+                                        <span class="badge text-bg-info">Gửi chứng từ</span>
+                                        break;
+                                    case "Confirmed":
+                                        <span class="badge text-bg-success">Xác nhận</span>
+                                        break;
+                                    case "Cancelled":
+                                        <span class="badge text-bg-danger">Hủy</span>
+                                        break;
+                                    case "RoleChanged":
+                                        <span class="badge text-bg-warning">Đổi vai trò</span>
+                                        break;
+                                    case "Created":
+                                        <span class="badge text-bg-primary">Tạo mới</span>
+                                        break;
+                                    case "Updated":
+                                        <span class="badge text-bg-secondary">Cập nhật</span>
+                                        break;
+                                    default:
+                                        <span class="badge text-bg-secondary">@log.Action</span>
+                                        break;
+                                }
+                            </td>
+                            <td>
+                                <div>@log.EntityName</div>
+                                <small class="text-muted text-break">@log.EntityId</small>
+                            </td>
+                            <td class="text-break" style="min-width: 140px; max-width: 240px;">
+                                @(string.IsNullOrWhiteSpace(log.OldValue) ? "—" : log.OldValue)
+                            </td>
+                            <td class="text-break" style="min-width: 140px; max-width: 240px;">
+                                @(string.IsNullOrWhiteSpace(log.NewValue) ? "—" : log.NewValue)
+                            </td>
+                            <td class="text-break" style="min-width: 140px; max-width: 240px;">
+                                @(string.IsNullOrWhiteSpace(log.Reason) ? "—" : log.Reason)
+                            </td>
+                        </tr>
+                    }
+                }
+            </tbody>
+        </table>
+    </div>
+    @if (totalPages > 1)
+    {
+        <div class="card-footer d-flex justify-content-between align-items-center">
+            <span class="small text-muted">Trang @currentPage / @totalPages</span>
+            <div class="btn-group">
+                <a asp-action="Index" asp-route-page="@(currentPage - 1)"
+                   asp-route-searchTerm="@searchTerm" asp-route-actionFilter="@actionFilter"
+                   asp-route-entityName="@entityName"
+                   class="btn btn-sm btn-outline-secondary @((currentPage <= 1) ? "disabled" : "")">Trước</a>
+                <a asp-action="Index" asp-route-page="@(currentPage + 1)"
+                   asp-route-searchTerm="@searchTerm" asp-route-actionFilter="@actionFilter"
+                   asp-route-entityName="@entityName"
+                   class="btn btn-sm btn-outline-secondary @((currentPage >= totalPages) ? "disabled" : "")">Sau</a>
+            </div>
+        </div>
+    }
+</section>
