@@ -5,9 +5,21 @@
 ## Yêu cầu
 
 - .NET 10 SDK
-- SQL Server 2022 hoặc Azure SQL tương thích, đang chạy và có quyền tạo/cập nhật database
+- SQL Server 2022 hoặc mới hơn, đang chạy
 
-Mặc định, ứng dụng dùng SQL Server tại `localhost`, database `booksalescore` và Windows Integrated Authentication. Nếu SQL Server dùng địa chỉ, cổng hoặc tài khoản khác, cấu hình `ConnectionStrings:DefaultConnection` bằng User Secrets hoặc biến môi trường `ConnectionStrings__DefaultConnection`. Không commit mật khẩu hay connection string có thông tin xác thực vào source control.
+## Khởi tạo database
+
+Mở [scripts/seed-test-data.sql](./scripts/seed-test-data.sql) trong SQL Server Management Studio và chạy toàn bộ file (hoặc dùng `sqlcmd`). Script sẽ tạo database `booksalescore`, toàn bộ bảng/sequence và dữ liệu demo. Nếu database đã có schema đầy đủ, script chỉ bổ sung các bản ghi demo còn thiếu; nếu schema tồn tại nhưng thiếu/cũ, script dừng và báo lỗi thay vì tự ý nâng cấp. Chạy lại script không tạo thêm các bản ghi `TST-`.
+
+Tài khoản Administrator được tạo từ SQL:
+
+| Vai trò | Tên đăng nhập | Mật khẩu tạm |
+|---|---|---|
+| Administrator | `admin` | `Password!23` |
+
+Tài khoản yêu cầu đổi mật khẩu ở lần đăng nhập đầu. Chỉ dùng cho môi trường phát triển/kiểm thử; không chạy script hoặc dùng tài khoản này trên production.
+
+Ứng dụng mặc định kết nối SQL Server tại `localhost`, database `booksalescore` bằng Windows Integrated Authentication. Nếu SQL Server dùng địa chỉ, cổng hoặc tài khoản khác (ví dụ SQL Server trong Docker), cấu hình `ConnectionStrings:DefaultConnection` bằng User Secrets hoặc biến môi trường `ConnectionStrings__DefaultConnection`. Không commit mật khẩu hay connection string có thông tin xác thực vào source control.
 
 ## Chạy
 
@@ -19,9 +31,7 @@ dotnet build
 dotnet run
 ```
 
-Khi khởi động, ứng dụng tự áp dụng các EF Core migration lên database. Không xóa thư mục `Migrations`: đây là schema versioning cần thiết để database mới được tạo và database hiện hữu được cập nhật mà không phải chạy lệnh migration thủ công.
-
-Để tạo quản trị viên đầu tiên, cấu hình `BootstrapAdmin__UserName`, `BootstrapAdmin__Email` và `BootstrapAdmin__Password` bằng User Secrets hoặc biến môi trường. Mật khẩu bootstrap không được lưu trong repository; tài khoản mới phải đổi mật khẩu ở lần đăng nhập đầu. Gỡ cấu hình bootstrap sau khi tạo tài khoản.
+Ứng dụng không tự tạo hoặc thay đổi schema khi khởi động; hãy chạy script SQL ở trên trước.
 
 ## Phạm vi MVP
 
@@ -29,4 +39,4 @@ Luồng nghiệp vụ gồm sách → khách hàng → báo giá → xác nhận
 
 ## Dữ liệu kiểm thử
 
-`scripts/seed-test-data.sql` tạo dữ liệu mẫu có tiền tố `TST-` để thử tìm kiếm, lọc và phân trang. Chạy script thủ công trên database kiểm thử sau khi đã khởi tạo ứng dụng; script yêu cầu có ít nhất một Administrator và có thể chạy lặp lại.
+`scripts/seed-test-data.sql` là file SQL duy nhất để tạo schema và dữ liệu mẫu có tiền tố `TST-` cho tìm kiếm, lọc và phân trang.
