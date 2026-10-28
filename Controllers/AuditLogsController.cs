@@ -1,6 +1,6 @@
 
 using BookSalesCore.Data;
-using BookSalesCore.ViewModels;
+using BookSalesCore.ViewModels.AuditLogs;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -34,9 +34,8 @@ public class AuditLogsController : Controller
         if (!string.IsNullOrWhiteSpace(searchTerm))
         {
             searchTerm = searchTerm.Trim();
-            var matchingUserIds = _context.Users
-                .Where(user => user.UserName != null &&
-                               user.UserName.Contains(searchTerm))
+            var matchingUserIds = _context.AppUsers
+                .Where(user => user.UserName.Contains(searchTerm))
                 .Select(user => user.Id);
 
             query = query.Where(x =>
@@ -69,7 +68,7 @@ public class AuditLogsController : Controller
 
         var logs = await (
             from audit in query
-            join user in _context.Users
+            join user in _context.AppUsers
                 on audit.UserId equals user.Id into auditUsers
             from user in auditUsers.DefaultIfEmpty()
             orderby audit.CreatedAt descending, audit.AuditLogId descending
@@ -78,7 +77,7 @@ public class AuditLogsController : Controller
                 CreatedAt = audit.CreatedAt,
                 ActorName = user == null
                     ? "Hệ thống"
-                    : user.UserName ?? "Người dùng",
+                    : user.UserName,
                 Action = audit.Action,
                 EntityName = audit.EntityName,
                 EntityId = audit.EntityId,

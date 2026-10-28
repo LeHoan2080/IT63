@@ -1,4 +1,4 @@
-@model BookSalesCore.ViewModels.CustomerListViewModel
+@model CustomerListViewModel
 
 @{
     ViewData["Title"] = "Khách hàng";
@@ -98,7 +98,7 @@
             </tbody>
         </table>
     </div>
-    @if (ViewData["Pagination"] is BookSalesCore.ViewModels.PaginationViewModel pagination)
+    @if (ViewData["Pagination"] is PaginationViewModel pagination)
     {
         @await Html.PartialAsync("_Pagination", pagination)
     }

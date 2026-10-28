@@ -1,14 +1,9 @@
 using System.ComponentModel.DataAnnotations;
 
-namespace BookSalesCore.ViewModels;
+namespace BookSalesCore.ViewModels.Customers;
 
-public class CustomerEditViewModel
+public class CustomerCreateViewModel
 {
-    public long CustomerId { get; set; }
-
-    // Mã khách hàng được tạo tự động, không cho sửa.
-    public string CustomerCode { get; set; } = string.Empty;
-
     [Required(ErrorMessage = "Vui lòng nhập tên khách hàng.")]
     [StringLength(200, ErrorMessage = "Tên khách hàng không được vượt quá 200 ký tự.")]
     [Display(Name = "Tên khách hàng")]
@@ -29,5 +24,5 @@ public class CustomerEditViewModel
     public string? Address { get; set; }
 
     [Display(Name = "Đang hoạt động")]
-    public bool IsActive { get; set; }
+    public bool IsActive { get; set; } = true;
 }

@@ -1,5 +1,5 @@
 
-@model BookSalesCore.ViewModels.SalesOrderCancelViewModel
+@model SalesOrderCancelViewModel
 
 @{
     ViewData["Title"] = "Hủy chứng từ";
@@ -12,7 +12,7 @@
 </div>
 
 <form asp-action="Cancel" method="post" class="card"
-      onsubmit="return confirm('Chứng từ sẽ được hủy và không thể khôi phục. Bạn có muốn tiếp tục?');">
+      onsubmit="if (!this.checkValidity()) { this.reportValidity(); return false; } return confirm('Chứng từ sẽ được hủy và không thể khôi phục. Bạn có muốn tiếp tục?');">
     @Html.AntiForgeryToken()
     <input asp-for="SalesOrderId" type="hidden" />
 

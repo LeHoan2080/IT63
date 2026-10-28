@@ -18,7 +18,7 @@ public class AdminController : Controller
     [HttpGet]
     public async Task<IActionResult> Index()
     {
-        ViewBag.UserCount = await _context.Users.CountAsync();
+        ViewBag.UserCount = await _context.AppUsers.CountAsync();
         ViewBag.ActiveBookCount = await _context.Books.CountAsync(book => book.IsActive);
         ViewBag.CustomerCount = await _context.Customers.CountAsync(customer => customer.IsActive);
         ViewBag.OpenOrderCount = await _context.SalesOrders.CountAsync(

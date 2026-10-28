@@ -5,8 +5,8 @@
     var culture = System.Globalization.CultureInfo.GetCultureInfo("vi-VN");
     var canManage = ViewData["CanManageOrder"] is bool manage && manage;
     var canCancelConfirmed = ViewData["CanCancelConfirmed"] is bool cancelConfirmed && cancelConfirmed;
-    var history = ViewData["OrderHistory"] as List<BookSalesCore.ViewModels.SalesOrderAuditEventViewModel>
-        ?? new List<BookSalesCore.ViewModels.SalesOrderAuditEventViewModel>();
+    var history = ViewData["OrderHistory"] as List<SalesOrderAuditEventViewModel>
+        ?? new List<SalesOrderAuditEventViewModel>();
     var orderLocalTime = (DateTime)ViewData["LocalOrderDate"]!;
     var statusText = Model.Status switch
     {

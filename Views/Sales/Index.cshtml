@@ -1,4 +1,4 @@
-@model BookSalesCore.ViewModels.SalesOrderListViewModel
+@model SalesOrderListViewModel
 
 @{
     ViewData["Title"] = "Báo giá / Đơn bán";
@@ -117,7 +117,7 @@
             </table>
         </div>
     }
-    @if (ViewData["Pagination"] is BookSalesCore.ViewModels.PaginationViewModel pagination)
+    @if (ViewData["Pagination"] is PaginationViewModel pagination)
     {
         @await Html.PartialAsync("_Pagination", pagination)
     }

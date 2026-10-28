@@ -1,6 +1,6 @@
 using BookSalesCore.Models.Entities;
 
-namespace BookSalesCore.ViewModels;
+namespace BookSalesCore.ViewModels.Customers;
 
 public class CustomerListViewModel
 {

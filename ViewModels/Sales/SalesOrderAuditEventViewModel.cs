@@ -1,4 +1,4 @@
-namespace BookSalesCore.ViewModels;
+namespace BookSalesCore.ViewModels.Sales;
 
 public class SalesOrderAuditEventViewModel
 {

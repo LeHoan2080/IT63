@@ -1,7 +1,7 @@
 
 using System.ComponentModel.DataAnnotations;
 
-namespace BookSalesCore.ViewModels;
+namespace BookSalesCore.ViewModels.Account;
 
 public class ChangePasswordViewModel
 {
@@ -15,6 +15,9 @@ public class ChangePasswordViewModel
         100,
         MinimumLength = 10,
         ErrorMessage = "Mật khẩu mới phải có ít nhất 10 ký tự.")]
+    [RegularExpression(
+        @"^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^a-zA-Z0-9]).+$",
+        ErrorMessage = "Mật khẩu mới phải có chữ hoa, chữ thường, số và ký tự đặc biệt.")]
     [DataType(DataType.Password)]
     [Display(Name = "Mật khẩu mới")]
     public string NewPassword { get; set; } = string.Empty;

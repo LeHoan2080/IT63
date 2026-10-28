@@ -1,7 +1,8 @@
 
 using BookSalesCore.Data;
 using BookSalesCore.Models.Entities;
-using BookSalesCore.ViewModels;
+using BookSalesCore.ViewModels.Books;
+using BookSalesCore.ViewModels.Shared;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -302,9 +303,7 @@ public class BooksController : Controller
     private async Task<string> GenerateNextSkuAsync()
     {
         var nextNumber = await _context.Database
-            .SqlQuery<long>(
-                $"SELECT NEXT VALUE FOR dbo.BookCodeSequence AS Value")
-            .SingleAsync();
+            .NextValueAsync(SqlServerSequence.BookCode);
 
         return $"BK-{nextNumber:D6}";
     }

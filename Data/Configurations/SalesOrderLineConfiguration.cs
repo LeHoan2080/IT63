@@ -31,7 +31,7 @@ public class SalesOrderLineConfiguration
             .IsRequired();
 
         builder.Property(x => x.BookTitleSnapshot)
-            .HasMaxLength(200)
+            .HasMaxLength(300)
             .IsRequired();
 
         builder.Property(x => x.UnitPrice)

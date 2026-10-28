@@ -1,26 +1,27 @@
-
-using BookSalesCore.Models;
-using BookSalesCore.ViewModels;
+using System.Security.Claims;
+using BookSalesCore.Services;
+using BookSalesCore.ViewModels.Account;
+using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Data.SqlClient;
 
 namespace BookSalesCore.Controllers;
 
 public class AccountController : Controller
 {
-    private readonly SignInManager<ApplicationUser> _signInManager;
-    private readonly UserManager<ApplicationUser> _userManager;
+    private readonly AuthService _authService;
+    private readonly ILogger<AccountController> _logger;
 
     public AccountController(
-        SignInManager<ApplicationUser> signInManager,
-        UserManager<ApplicationUser> userManager)
+        AuthService authService,
+        ILogger<AccountController> logger)
     {
-        _signInManager = signInManager;
-        _userManager = userManager;
+        _authService = authService;
+        _logger = logger;
     }
 
-    // GET: /Account/Login
     [AllowAnonymous]
     [HttpGet]
     public IActionResult Login(string? returnUrl = null)
@@ -29,7 +30,6 @@ public class AccountController : Controller
         return View(new LoginViewModel());
     }
 
-    // POST: /Account/Login
     [AllowAnonymous]
     [HttpPost]
     [ValidateAntiForgeryToken]
@@ -38,74 +38,63 @@ public class AccountController : Controller
         string? returnUrl = null)
     {
         ViewData["ReturnUrl"] = returnUrl;
-
         if (!ModelState.IsValid)
         {
             return View(model);
         }
 
-        ApplicationUser? user;
-
-        if (model.UserNameOrEmail.Contains('@'))
+        LoginResult result;
+        try
         {
-            user = await _userManager.FindByEmailAsync(
-                model.UserNameOrEmail.Trim());
+            result = await _authService.LoginAsync(
+                model.UserNameOrEmail,
+                model.Password);
         }
-        else
+        catch (SqlException exception)
         {
-            user = await _userManager.FindByNameAsync(
-                model.UserNameOrEmail.Trim());
-        }
-
-        if (user is null)
-        {
+            _logger.LogError(exception, "Database connection failed during sign-in.");
             ModelState.AddModelError(
                 string.Empty,
-                "Tên đăng nhập hoặc mật khẩu không đúng.");
-
+                "Không thể kết nối cơ sở dữ liệu. Vui lòng kiểm tra SQL Server và thử lại.");
             return View(model);
         }
-
-        var result = await _signInManager.PasswordSignInAsync(
-            user.UserName!,
-            model.Password,
-            model.RememberMe,
-            lockoutOnFailure: true);
-
-        if (result.Succeeded)
-        {
-            // Tài khoản mới phải đổi mật khẩu tạm trước khi dùng hệ thống.
-            if (user.MustChangePassword)
-            {
-                return RedirectToAction(nameof(ChangePassword));
-            }
-
-            if (!string.IsNullOrWhiteSpace(returnUrl)
-                && Url.IsLocalUrl(returnUrl))
-            {
-                return Redirect(returnUrl);
-            }
-
-            return RedirectToAction("Index", "Home");
-        }
-
-        if (result.IsLockedOut)
+        if (result.Status == LoginStatus.LockedOut)
         {
             ModelState.AddModelError(
                 string.Empty,
                 "Tài khoản tạm thời bị khóa. Vui lòng thử lại sau.");
+            return View(model);
         }
-        else
+
+        if (result.Status != LoginStatus.Success || result.User is null)
         {
             ModelState.AddModelError(
                 string.Empty,
                 "Tên đăng nhập hoặc mật khẩu không đúng.");
+            return View(model);
         }
 
-        return View(model);
+        await HttpContext.SignInAsync(
+            CookieAuthenticationDefaults.AuthenticationScheme,
+            UserClaimsPrincipalFactory.Create(result.User),
+            new AuthenticationProperties
+            {
+                IsPersistent = model.RememberMe
+            });
+
+        if (result.User.MustChangePassword)
+        {
+            return RedirectToAction(nameof(ChangePassword));
+        }
+
+        if (!string.IsNullOrWhiteSpace(returnUrl) && Url.IsLocalUrl(returnUrl))
+        {
+            return Redirect(returnUrl);
+        }
+
+        return RedirectToAction("Index", "Home");
     }
 
-    // GET: /Account/ChangePassword
     [Authorize]
     [HttpGet]
     public IActionResult ChangePassword()
@@ -113,78 +102,70 @@ public class AccountController : Controller
         return View(new ChangePasswordViewModel());
     }
 
-    // POST: /Account/ChangePassword
     [Authorize]
     [HttpPost]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> ChangePassword(
-        ChangePasswordViewModel model)
+    public async Task<IActionResult> ChangePassword(ChangePasswordViewModel model)
     {
         if (!ModelState.IsValid)
         {
             return View(model);
         }
 
-        var user = await _userManager.GetUserAsync(User);
-
-        if (user is null)
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (string.IsNullOrWhiteSpace(userId))
         {
-            await _signInManager.SignOutAsync();
+            await HttpContext.SignOutAsync(
+                CookieAuthenticationDefaults.AuthenticationScheme);
             return RedirectToAction(nameof(Login));
         }
 
-        var result = await _userManager.ChangePasswordAsync(
-            user,
+        var result = await _authService.ChangePasswordAsync(
+            userId,
             model.CurrentPassword,
             model.NewPassword);
 
-        if (!result.Succeeded)
+        if (result == ChangePasswordStatus.InvalidCurrentPassword)
         {
-            foreach (var error in result.Errors)
-            {
-                ModelState.AddModelError(
-                    string.Empty,
-                    error.Description);
-            }
-
+            ModelState.AddModelError(
+                nameof(model.CurrentPassword),
+                "Mật khẩu hiện tại không chính xác.");
             return View(model);
         }
 
-        user.MustChangePassword = false;
-
-        var updateResult = await _userManager.UpdateAsync(user);
-
-        if (!updateResult.Succeeded)
+        if (result == ChangePasswordStatus.UserNotFound)
         {
-            foreach (var error in updateResult.Errors)
-            {
-                ModelState.AddModelError(
-                    string.Empty,
-                    error.Description);
-            }
-
-            return View(model);
+            await HttpContext.SignOutAsync(
+                CookieAuthenticationDefaults.AuthenticationScheme);
+            return RedirectToAction(nameof(Login));
         }
 
-        await _signInManager.RefreshSignInAsync(user);
+        var user = await _authService.GetActiveUserAsync(userId);
+        if (user is null)
+        {
+            await HttpContext.SignOutAsync(
+                CookieAuthenticationDefaults.AuthenticationScheme);
+            return RedirectToAction(nameof(Login));
+        }
+
+        await HttpContext.SignInAsync(
+            CookieAuthenticationDefaults.AuthenticationScheme,
+            UserClaimsPrincipalFactory.Create(user));
 
         TempData["SuccessMessage"] = "Đổi mật khẩu thành công.";
-
         return RedirectToAction("Index", "Home");
     }
 
-    // POST: /Account/Logout
     [Authorize]
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Logout()
     {
-        await _signInManager.SignOutAsync();
-
+        await HttpContext.SignOutAsync(
+            CookieAuthenticationDefaults.AuthenticationScheme);
         return RedirectToAction(nameof(Login));
     }
 
-    // GET: /Account/AccessDenied
     [AllowAnonymous]
     [HttpGet]
     public IActionResult AccessDenied()

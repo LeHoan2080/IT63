@@ -1,9 +1,9 @@
-using System.Security.Cryptography;
 using System.Security.Claims;
+using System.Security.Cryptography;
 using BookSalesCore.Data;
 using BookSalesCore.Models;
 using BookSalesCore.Models.Entities;
-using BookSalesCore.ViewModels;
+using BookSalesCore.ViewModels.Users;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
@@ -17,57 +17,47 @@ public class UsersController : Controller
     private const string AdministratorRole = "Administrator";
     private const string SalesStaffRole = "SalesStaff";
 
-    private readonly UserManager<ApplicationUser> _userManager;
-    private readonly RoleManager<IdentityRole> _roleManager;
     private readonly ApplicationDbContext _context;
+    private readonly IPasswordHasher<AppUser> _passwordHasher;
+    private readonly ILogger<UsersController> _logger;
 
     public UsersController(
-        UserManager<ApplicationUser> userManager,
-        RoleManager<IdentityRole> roleManager,
-        ApplicationDbContext context)
+        ApplicationDbContext context,
+        IPasswordHasher<AppUser> passwordHasher,
+        ILogger<UsersController> logger)
     {
-        _userManager = userManager;
-        _roleManager = roleManager;
         _context = context;
+        _passwordHasher = passwordHasher;
+        _logger = logger;
     }
 
-    // GET: /Users
     [HttpGet]
     public async Task<IActionResult> Index()
     {
-        var users = await _userManager.Users
+        var users = await _context.AppUsers
+            .AsNoTracking()
+            .Include(user => user.Role)
             .OrderBy(user => user.UserName)
-            .ToListAsync();
-
-        var model = new UserListViewModel();
-
-        foreach (var user in users)
-        {
-            var roles = await _userManager.GetRolesAsync(user);
-            var isLockedOut = await _userManager.IsLockedOutAsync(user);
-
-            model.Users.Add(new UserListItemViewModel
+            .Select(user => new UserListItemViewModel
             {
                 Id = user.Id,
-                UserName = user.UserName ?? string.Empty,
-                Email = user.Email ?? string.Empty,
-                Role = roles.FirstOrDefault() ?? "Chưa gán vai trò",
-                IsLockedOut = isLockedOut,
+                UserName = user.UserName,
+                Email = user.Email,
+                Role = user.Role.Name,
+                IsLockedOut = user.LockoutEnd > DateTimeOffset.UtcNow,
                 MustChangePassword = user.MustChangePassword
-            });
-        }
+            })
+            .ToListAsync();
 
-        return View(model);
+        return View(new UserListViewModel { Users = users });
     }
 
-    // GET: /Users/Create
     [HttpGet]
     public IActionResult Create()
     {
         return View(new UserCreateViewModel());
     }
 
-    // POST: /Users/Create
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Create(UserCreateViewModel model)
@@ -77,390 +67,197 @@ public class UsersController : Controller
             return View(model);
         }
 
-        if (model.Role != AdministratorRole &&
-            model.Role != SalesStaffRole)
+        var role = await _context.AppRoles
+            .FirstOrDefaultAsync(candidate =>
+                candidate.Code == model.Role && candidate.IsActive);
+        if (role is null)
         {
-            ModelState.AddModelError(
-                nameof(model.Role),
-                "Vai trò không hợp lệ.");
-
+            ModelState.AddModelError(nameof(model.Role), "Vai trò không hợp lệ.");
             return View(model);
         }
 
         var userName = model.UserName.Trim();
         var email = model.Email.Trim();
-
-        if (await _userManager.FindByNameAsync(userName) is not null)
+        var normalizedUserName = userName.ToUpperInvariant();
+        var normalizedEmail = email.ToUpperInvariant();
+        if (await _context.AppUsers.AnyAsync(user =>
+                user.NormalizedUserName == normalizedUserName))
         {
-            ModelState.AddModelError(
-                nameof(model.UserName),
-                "Tên đăng nhập đã tồn tại.");
-
+            ModelState.AddModelError(nameof(model.UserName), "Tên đăng nhập đã tồn tại.");
             return View(model);
         }
 
-        if (await _userManager.FindByEmailAsync(email) is not null)
+        if (await _context.AppUsers.AnyAsync(user =>
+                user.NormalizedEmail == normalizedEmail))
         {
-            ModelState.AddModelError(
-                nameof(model.Email),
-                "Email đã được sử dụng.");
-
+            ModelState.AddModelError(nameof(model.Email), "Email đã được sử dụng.");
             return View(model);
-        }
-
-        foreach (var roleName in new[]
-                 {
-                     AdministratorRole,
-                     SalesStaffRole
-                 })
-        {
-            if (!await _roleManager.RoleExistsAsync(roleName))
-            {
-                var roleResult = await _roleManager.CreateAsync(
-                    new IdentityRole(roleName));
-
-                if (!roleResult.Succeeded)
-                {
-                    foreach (var error in roleResult.Errors)
-                    {
-                        ModelState.AddModelError(
-                            string.Empty,
-                            error.Description);
-                    }
-
-                    return View(model);
-                }
-            }
         }
 
         var temporaryPassword = GenerateTemporaryPassword();
-
-        var user = new ApplicationUser
+        var user = new AppUser
         {
             UserName = userName,
+            NormalizedUserName = normalizedUserName,
             Email = email,
-            EmailConfirmed = true,
+            NormalizedEmail = normalizedEmail,
+            RoleId = role.Id,
+            IsActive = true,
             MustChangePassword = true,
-            LockoutEnabled = true
+            CreatedAt = DateTime.UtcNow
         };
+        user.PasswordHash = _passwordHasher.HashPassword(user, temporaryPassword);
 
-        var createResult = await _userManager.CreateAsync(
-            user,
-            temporaryPassword);
-
-        if (!createResult.Succeeded)
-        {
-            foreach (var error in createResult.Errors)
-            {
-                ModelState.AddModelError(
-                    string.Empty,
-                    error.Description);
-            }
-
-            return View(model);
-        }
-
-        var addRoleResult = await _userManager.AddToRoleAsync(
-            user,
-            model.Role);
-
-        if (!addRoleResult.Succeeded)
-        {
-            await _userManager.DeleteAsync(user);
-
-            foreach (var error in addRoleResult.Errors)
-            {
-                ModelState.AddModelError(
-                    string.Empty,
-                    error.Description);
-            }
-
-            return View(model);
-        }
+        _context.AppUsers.Add(user);
+        WriteAuditLog(
+            "Created",
+            "User",
+            user.Id,
+            null,
+            $"UserName={userName}; Role={role.Code}",
+            "Tạo tài khoản người dùng");
 
         try
         {
-            await WriteAuditLogAsync(
-                action: "Created",
-                entityName: "User",
-                entityId: user.Id,
-                oldValue: null,
-                newValue: $"UserName={userName}; Role={model.Role}",
-                reason: "Tạo tài khoản người dùng");
-
             await _context.SaveChangesAsync();
         }
-        catch (Exception)
+        catch (DbUpdateException exception)
         {
-            // Không hiển thị chi tiết nội bộ hoặc dữ liệu nhạy cảm.
-            // Tài khoản đã được tạo; báo rõ rằng nhật ký cần được kiểm tra.
-            TempData["ErrorMessage"] =
-                "Tài khoản đã được tạo nhưng chưa ghi được nhật ký kiểm toán. Vui lòng kiểm tra hệ thống.";
-
-            return RedirectToAction(nameof(Index));
+            _logger.LogError(exception, "Failed to create user {UserName}.", userName);
+            ModelState.AddModelError(
+                string.Empty,
+                "Không thể tạo tài khoản. Vui lòng kiểm tra tên đăng nhập/email và thử lại.");
+            return View(model);
         }
 
         TempData["CreatedUserName"] = userName;
         TempData["TemporaryPassword"] = temporaryPassword;
         TempData["SuccessMessage"] = "Đã tạo tài khoản thành công.";
-
         return RedirectToAction(nameof(Create));
     }
 
-    // POST: /Users/ChangeRole/{id}
     [HttpPost]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> ChangeRole(
-        string id,
-        string role,
-        string? reason)
+    public async Task<IActionResult> ChangeRole(string id, string role, string? reason)
     {
-        if (string.IsNullOrWhiteSpace(id))
-        {
-            return BadRequest();
-        }
-
         if (role != AdministratorRole && role != SalesStaffRole)
         {
             TempData["ErrorMessage"] = "Vai trò được chọn không hợp lệ.";
             return RedirectToAction(nameof(Index));
         }
 
-        var user = await _userManager.FindByIdAsync(id);
-
-        if (user is null)
+        var user = await _context.AppUsers
+            .Include(candidate => candidate.Role)
+            .FirstOrDefaultAsync(candidate => candidate.Id == id);
+        var newRole = await _context.AppRoles
+            .FirstOrDefaultAsync(candidate => candidate.Code == role && candidate.IsActive);
+        if (user is null || newRole is null)
         {
             return NotFound();
         }
 
-        var currentUserId = _userManager.GetUserId(User);
-
-        if (user.Id == currentUserId)
+        if (id == User.FindFirstValue(ClaimTypes.NameIdentifier))
         {
-            TempData["ErrorMessage"] =
-                "Bạn không thể tự thay đổi vai trò của chính mình.";
-
+            TempData["ErrorMessage"] = "Bạn không thể tự thay đổi vai trò của chính mình.";
             return RedirectToAction(nameof(Index));
         }
 
-        var oldRoles = await _userManager.GetRolesAsync(user);
-        var oldRole = oldRoles.FirstOrDefault();
-
+        var oldRole = user.Role.Code;
         if (oldRole == role)
         {
-            TempData["SuccessMessage"] =
-                "Tài khoản đã có vai trò được chọn; không có thay đổi nào được thực hiện.";
-
+            TempData["SuccessMessage"] = "Tài khoản đã có vai trò được chọn.";
             return RedirectToAction(nameof(Index));
         }
 
-        if (!await _roleManager.RoleExistsAsync(role))
+        if (oldRole == AdministratorRole &&
+            role != AdministratorRole &&
+            await _context.AppUsers.CountAsync(candidate =>
+                candidate.Role.Code == AdministratorRole && candidate.IsActive) <= 1)
         {
             TempData["ErrorMessage"] =
-                "Vai trò chưa tồn tại trong hệ thống.";
-
+                "Không thể hạ quyền quản trị của tài khoản quản trị viên cuối cùng.";
             return RedirectToAction(nameof(Index));
-        }
-
-        // Không cho phép xóa quyền quản trị cuối cùng.
-        if (oldRoles.Contains(AdministratorRole) &&
-            role != AdministratorRole)
-        {
-            var administratorCount = await _userManager
-                .GetUsersInRoleAsync(AdministratorRole);
-
-            if (administratorCount.Count <= 1)
-            {
-                TempData["ErrorMessage"] =
-                    "Không thể hạ quyền quản trị của tài khoản quản trị viên cuối cùng.";
-
-                return RedirectToAction(nameof(Index));
-            }
         }
 
         var reasonText = string.IsNullOrWhiteSpace(reason)
             ? "Thay đổi vai trò bởi quản trị viên"
             : reason.Trim();
-
         if (reasonText.Length > 500)
         {
-            TempData["ErrorMessage"] =
-                "Lý do thay đổi vai trò không được vượt quá 500 ký tự.";
-
+            TempData["ErrorMessage"] = "Lý do không được vượt quá 500 ký tự.";
             return RedirectToAction(nameof(Index));
         }
 
-        // Thay vai trò bằng cách gỡ các vai trò cũ rồi gán vai trò mới.
-        var removeResult = await _userManager.RemoveFromRolesAsync(
-            user,
-            oldRoles);
+        user.RoleId = newRole.Id;
+        user.UpdatedAt = DateTime.UtcNow;
+        WriteAuditLog(
+            "RoleChanged",
+            "User",
+            user.Id,
+            oldRole,
+            role,
+            reasonText);
+        await _context.SaveChangesAsync();
 
-        if (!removeResult.Succeeded)
-        {
-            TempData["ErrorMessage"] = string.Join(
-                " ",
-                removeResult.Errors.Select(error => error.Description));
-
-            return RedirectToAction(nameof(Index));
-        }
-
-        var addResult = await _userManager.AddToRoleAsync(user, role);
-
-        if (!addResult.Succeeded)
-        {
-            // Cố gắng khôi phục vai trò ban đầu nếu gán vai trò mới thất bại.
-            if (oldRoles.Count > 0)
-            {
-                await _userManager.AddToRolesAsync(user, oldRoles);
-            }
-
-            TempData["ErrorMessage"] = string.Join(
-                " ",
-                addResult.Errors.Select(error => error.Description));
-
-            return RedirectToAction(nameof(Index));
-        }
-
-        try
-        {
-            await WriteAuditLogAsync(
-                action: "RoleChanged",
-                entityName: "User",
-                entityId: user.Id,
-                oldValue: oldRole ?? "Chưa gán vai trò",
-                newValue: role,
-                reason: reasonText);
-
-            await _context.SaveChangesAsync();
-        }
-        catch (Exception)
-        {
-            TempData["ErrorMessage"] =
-                "Vai trò đã được thay đổi nhưng chưa ghi được nhật ký kiểm toán. Vui lòng kiểm tra hệ thống.";
-
-            return RedirectToAction(nameof(Index));
-        }
-
-        TempData["SuccessMessage"] =
-            $"Đã thay đổi vai trò của tài khoản {user.UserName}.";
-
+        TempData["SuccessMessage"] = $"Đã thay đổi vai trò của tài khoản {user.UserName}.";
         return RedirectToAction(nameof(Index));
     }
 
-    // POST: /Users/ToggleLock/{id}
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> ToggleLock(string id)
     {
-        var user = await _userManager.FindByIdAsync(id);
-
+        var user = await _context.AppUsers
+            .FirstOrDefaultAsync(candidate => candidate.Id == id);
         if (user is null)
         {
             return NotFound();
         }
 
-        var currentUserId = _userManager.GetUserId(User);
-
-        if (user.Id == currentUserId)
+        if (id == User.FindFirstValue(ClaimTypes.NameIdentifier))
         {
-            TempData["ErrorMessage"] =
-                "Bạn không thể tự khóa tài khoản đang sử dụng.";
-
+            TempData["ErrorMessage"] = "Bạn không thể tự khóa tài khoản đang sử dụng.";
             return RedirectToAction(nameof(Index));
         }
 
-        if (await _userManager.IsLockedOutAsync(user))
-        {
-            var unlockResult = await _userManager.SetLockoutEndDateAsync(
-                user,
-                null);
+        var isLocked = user.LockoutEnd > DateTimeOffset.UtcNow;
+        user.LockoutEnd = isLocked ? null : DateTimeOffset.MaxValue;
+        user.FailedAccessCount = 0;
+        user.UpdatedAt = DateTime.UtcNow;
+        await _context.SaveChangesAsync();
 
-            if (unlockResult.Succeeded)
-            {
-                TempData["SuccessMessage"] =
-                    $"Đã mở khóa tài khoản {user.UserName}.";
-            }
-            else
-            {
-                TempData["ErrorMessage"] = string.Join(
-                    " ",
-                    unlockResult.Errors.Select(error => error.Description));
-            }
-        }
-        else
-        {
-            var lockResult = await _userManager.SetLockoutEndDateAsync(
-                user,
-                DateTimeOffset.MaxValue);
-
-            if (lockResult.Succeeded)
-            {
-                TempData["SuccessMessage"] =
-                    $"Đã khóa tài khoản {user.UserName}.";
-            }
-            else
-            {
-                TempData["ErrorMessage"] = string.Join(
-                    " ",
-                    lockResult.Errors.Select(error => error.Description));
-            }
-        }
-
+        TempData["SuccessMessage"] = isLocked
+            ? $"Đã mở khóa tài khoản {user.UserName}."
+            : $"Đã khóa tài khoản {user.UserName}.";
         return RedirectToAction(nameof(Index));
     }
 
-    // POST: /Users/ResetPassword/{id}
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> ResetPassword(string id)
     {
-        var user = await _userManager.FindByIdAsync(id);
-
+        var user = await _context.AppUsers
+            .FirstOrDefaultAsync(candidate => candidate.Id == id);
         if (user is null)
         {
             return NotFound();
         }
 
         var temporaryPassword = GenerateTemporaryPassword();
-
-        var resetToken =
-            await _userManager.GeneratePasswordResetTokenAsync(user);
-
-        var resetResult = await _userManager.ResetPasswordAsync(
-            user,
-            resetToken,
-            temporaryPassword);
-
-        if (!resetResult.Succeeded)
-        {
-            TempData["ErrorMessage"] = string.Join(
-                " ",
-                resetResult.Errors.Select(error => error.Description));
-
-            return RedirectToAction(nameof(Index));
-        }
-
+        user.PasswordHash = _passwordHasher.HashPassword(user, temporaryPassword);
         user.MustChangePassword = true;
-
-        var updateResult = await _userManager.UpdateAsync(user);
-
-        if (!updateResult.Succeeded)
-        {
-            TempData["ErrorMessage"] =
-                "Đã đặt lại mật khẩu nhưng không cập nhật được cờ bắt buộc đổi mật khẩu. Vui lòng kiểm tra tài khoản.";
-
-            return RedirectToAction(nameof(Index));
-        }
+        user.FailedAccessCount = 0;
+        user.UpdatedAt = DateTime.UtcNow;
+        await _context.SaveChangesAsync();
 
         TempData["ResetUserName"] = user.UserName;
         TempData["TemporaryPassword"] = temporaryPassword;
         TempData["SuccessMessage"] =
             "Đã cấp mật khẩu tạm mới. Hãy chuyển mật khẩu này trực tiếp cho người dùng.";
-
         return RedirectToAction(nameof(Index));
     }
 
-    private async Task WriteAuditLogAsync(
+    private void WriteAuditLog(
         string action,
         string entityName,
         string entityId,
@@ -468,11 +265,9 @@ public class UsersController : Controller
         string? newValue,
         string? reason)
     {
-        var actorId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-
-        var log = new AuditLog
+        _context.AuditLogs.Add(new AuditLog
         {
-            UserId = actorId,
+            UserId = User.FindFirstValue(ClaimTypes.NameIdentifier),
             Action = action,
             EntityName = entityName,
             EntityId = entityId,
@@ -480,19 +275,15 @@ public class UsersController : Controller
             NewValue = LimitLength(newValue, 1000),
             Reason = LimitLength(reason, 500),
             CreatedAt = DateTime.UtcNow
-        };
+        });
 
-        await _context.AuditLogs.AddAsync(log);
     }
 
     private static string? LimitLength(string? value, int maxLength)
     {
-        if (value is null || value.Length <= maxLength)
-        {
-            return value;
-        }
-
-        return value[..maxLength];
+        return value is null || value.Length <= maxLength
+            ? value
+            : value[..maxLength];
     }
 
     private static string GenerateTemporaryPassword()
@@ -510,16 +301,15 @@ public class UsersController : Controller
             Pick(digits),
             Pick(special)
         };
-
         while (chars.Count < 16)
         {
             chars.Add(Pick(all));
         }
 
-        for (var i = chars.Count - 1; i > 0; i--)
+        for (var index = chars.Count - 1; index > 0; index--)
         {
-            var j = RandomNumberGenerator.GetInt32(i + 1);
-            (chars[i], chars[j]) = (chars[j], chars[i]);
+            var other = RandomNumberGenerator.GetInt32(index + 1);
+            (chars[index], chars[other]) = (chars[other], chars[index]);
         }
 
         return new string(chars.ToArray());

@@ -1,5 +1,5 @@
 
-namespace BookSalesCore.ViewModels;
+namespace BookSalesCore.ViewModels.Shared;
 
 public class PaginationViewModel
 {

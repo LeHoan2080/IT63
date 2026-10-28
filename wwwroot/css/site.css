@@ -1,7 +1,7 @@
 :root {
-  --app-primary: #714b67;
-  --app-primary-hover: #5b3b53;
-  --app-primary-soft: #f3edf2;
+  --app-primary: #1f665c;
+  --app-primary-hover: #174e47;
+  --app-primary-soft: #eaf3f1;
   --app-background: #f6f7f9;
   --app-surface: #fff;
   --app-border: #d8dadd;
@@ -44,7 +44,7 @@ a:hover {
   --bs-btn-hover-border-color: var(--app-primary-hover);
   --bs-btn-active-bg: var(--app-primary-hover);
   --bs-btn-active-border-color: var(--app-primary-hover);
-  --bs-btn-focus-shadow-rgb: 113, 75, 103;
+  --bs-btn-focus-shadow-rgb: 31, 102, 92;
 }
 
 .btn-outline-primary {
@@ -59,8 +59,8 @@ a:hover {
 .form-control:focus,
 .form-select:focus,
 .form-check-input:focus {
-  border-color: #b69caf;
-  box-shadow: 0 0 0 0.2rem rgb(113 75 103 / 15%);
+  border-color: #9ec7bf;
+  box-shadow: 0 0 0 0.2rem rgb(31 102 92 / 15%);
 }
 
 .app-shell {
@@ -116,7 +116,7 @@ a:hover {
   color: var(--app-muted);
   font-size: 9px;
   font-weight: 700;
-  letter-spacing: .09em;
+  letter-spacing: 0;
 }
 
 .sidebar-nav {
@@ -130,7 +130,7 @@ a:hover {
   color: #8a8f94;
   font-size: 10px;
   font-weight: 700;
-  letter-spacing: .08em;
+  letter-spacing: 0;
 }
 
 .sidebar-section-label:first-child {
@@ -152,7 +152,7 @@ a:hover {
 }
 
 .sidebar-link:hover {
-  background: #f6f4f6;
+  background: #eef5f3;
   color: var(--app-primary);
 }
 
@@ -184,7 +184,7 @@ a:hover {
   flex: 0 0 34px;
   place-items: center;
   border-radius: 50%;
-  background: #e7dce5;
+  background: #e4efec;
   color: var(--app-primary);
   font-weight: 700;
 }
@@ -258,7 +258,7 @@ a:hover {
   color: var(--app-muted);
   font-size: 11px;
   font-weight: 600;
-  letter-spacing: .04em;
+  letter-spacing: 0;
 }
 
 .topbar-separator {
@@ -321,7 +321,7 @@ a:hover {
   margin: 0;
   font-size: 25px;
   font-weight: 600;
-  letter-spacing: -.025em;
+  letter-spacing: 0;
 }
 
 .page-subtitle {
@@ -375,8 +375,8 @@ a:hover {
 }
 
 .metric-card-primary {
-  background: linear-gradient(120deg, #714b67, #885f7e);
-  border-color: #714b67;
+  background: linear-gradient(120deg, #1f665c, #367a69);
+  border-color: #1f665c;
   color: #fff;
 }
 
@@ -395,7 +395,7 @@ a:hover {
   position: relative;
   z-index: 1;
   margin: 12px 0 4px;
-  font-size: clamp(24px, 2.4vw, 31px);
+  font-size: 26px;
   font-weight: 650;
   line-height: 1.1;
 }
@@ -409,7 +409,7 @@ a:hover {
   position: absolute;
   right: 15px;
   bottom: 3px;
-  color: rgb(113 75 103 / 10%);
+  color: rgb(31 102 92 / 10%);
   font-size: 70px;
   font-weight: 700;
   line-height: 1;
@@ -446,7 +446,7 @@ a:hover {
   flex: 0 0 30px;
   place-items: center;
   border-radius: 50%;
-  background: #f3edf2;
+  background: #eaf3f1;
   color: var(--app-primary);
   font-size: 11px;
   font-weight: 700;
@@ -480,7 +480,7 @@ a:hover {
 
 .empty-state-icon {
   margin-bottom: 7px;
-  color: #b4a1b0;
+  color: #8da9a2;
   font-size: 30px;
 }
 
@@ -497,8 +497,8 @@ a:hover {
 
 .note-content {
   padding: 10px 12px;
-  border-left: 3px solid #d9c8d6;
-  background: #faf8fa;
+  border-left: 3px solid #c5d8d2;
+  background: #f6f9f8;
   white-space: pre-wrap;
 }
 
@@ -527,7 +527,7 @@ a:hover {
 .activity-timeline li {
   position: relative;
   padding: 0 0 20px 20px;
-  border-left: 1px solid #e5e2e5;
+  border-left: 1px solid #e1e9e6;
 }
 
 .activity-timeline li:last-child {
@@ -544,7 +544,7 @@ a:hover {
   border: 2px solid #fff;
   border-radius: 50%;
   background: var(--app-primary);
-  box-shadow: 0 0 0 1px #b69caf;
+  box-shadow: 0 0 0 1px #9ec7bf;
 }
 
 .activity-title {
@@ -619,7 +619,7 @@ a:hover {
   place-items: center;
   padding: 24px;
   background:
-    radial-gradient(ellipse at 15% 15%, rgb(113 75 103 / 10%), transparent 36%),
+    radial-gradient(ellipse at 15% 15%, rgb(31 102 92 / 10%), transparent 36%),
     var(--app-background);
 }
 
@@ -628,7 +628,7 @@ a:hover {
   padding: 34px;
   background: #fff;
   border: 1px solid var(--app-border);
-  border-radius: 9px;
+  border-radius: 8px;
   box-shadow: 0 12px 35px rgb(33 37 41 / 7%);
 }
 
@@ -667,7 +667,7 @@ a:hover {
 }
 
 .table {
-  --bs-table-hover-bg: #f8f6f8;
+  --bs-table-hover-bg: #f2f6f5;
 }
 
 .table thead th {

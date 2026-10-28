@@ -1,17 +1,18 @@
 /*
     One-shot SQL Server setup for BookSalesCore.
 
-    Run this entire file in SQL Server Management Studio or sqlcmd while
-    connected to a SQL Server instance. It creates the booksalescore database
-    and all application tables when missing, then inserts demo login accounts
-    and repeatable TST- sample data.
+    Run this entire file in SQL Server Management Studio or sqlcmd. It drops
+    all user tables and sequences in booksalescore, recreates the current
+    schema, and inserts the demo login accounts and TST- sample data.
 
     Demo Administrator account (must change password after first sign-in):
       Username: admin
       Password: Password!23
 
-    Intended for local/test databases only. Do not use this account in
-    production. This script does not delete or modify existing business rows.
+    DESTRUCTIVE: intended only for the local/test booksalescore database.
+    Back up any data you need before running. All existing tables, including
+    old Identity/migration tables and business rows, are removed before reseed.
+    Do not run this script against production.
 
     Creates:
       - 160 books (with active and inactive examples)
@@ -34,88 +35,103 @@ GO
 
 SET XACT_ABORT ON;
 
-IF OBJECT_ID(N'dbo.AspNetUsers', N'U') IS NULL
+BEGIN TRY
+    BEGIN TRANSACTION;
+
+    DECLARE @DropForeignKeys nvarchar(max) = N'';
+    DECLARE @DropTables nvarchar(max) = N'';
+    DECLARE @DropSequences nvarchar(max) = N'';
+
+    SELECT @DropForeignKeys = STRING_AGG(
+        CONVERT(nvarchar(max),
+            N'ALTER TABLE ' + QUOTENAME(schemaInfo.name) + N'.' + QUOTENAME(tableInfo.name) +
+            N' DROP CONSTRAINT ' + QUOTENAME(foreignKey.name) + N';'),
+        CHAR(10))
+    FROM sys.foreign_keys AS foreignKey
+    INNER JOIN sys.tables AS tableInfo
+        ON tableInfo.object_id = foreignKey.parent_object_id
+    INNER JOIN sys.schemas AS schemaInfo
+        ON schemaInfo.schema_id = tableInfo.schema_id;
+
+    IF NULLIF(@DropForeignKeys, N'') IS NOT NULL
+    BEGIN
+        EXEC sys.sp_executesql @DropForeignKeys;
+    END;
+
+    SELECT @DropTables = STRING_AGG(
+        CONVERT(nvarchar(max),
+            N'DROP TABLE ' + QUOTENAME(schemaInfo.name) + N'.' + QUOTENAME(tableInfo.name) + N';'),
+        CHAR(10))
+    FROM sys.tables AS tableInfo
+    INNER JOIN sys.schemas AS schemaInfo
+        ON schemaInfo.schema_id = tableInfo.schema_id
+    WHERE tableInfo.is_ms_shipped = 0;
+
+    IF NULLIF(@DropTables, N'') IS NOT NULL
+    BEGIN
+        EXEC sys.sp_executesql @DropTables;
+    END;
+
+    SELECT @DropSequences = STRING_AGG(
+        CONVERT(nvarchar(max),
+            N'DROP SEQUENCE ' + QUOTENAME(schemaInfo.name) + N'.' + QUOTENAME(sequenceInfo.name) + N';'),
+        CHAR(10))
+    FROM sys.sequences AS sequenceInfo
+    INNER JOIN sys.schemas AS schemaInfo
+        ON schemaInfo.schema_id = sequenceInfo.schema_id
+    WHERE sequenceInfo.is_ms_shipped = 0;
+
+    IF NULLIF(@DropSequences, N'') IS NOT NULL
+    BEGIN
+        EXEC sys.sp_executesql @DropSequences;
+    END;
+
+    COMMIT TRANSACTION;
+END TRY
+BEGIN CATCH
+    IF @@TRANCOUNT > 0
+    BEGIN
+        ROLLBACK TRANSACTION;
+    END;
+    THROW;
+END CATCH;
+
+IF OBJECT_ID(N'dbo.AppUsers', N'U') IS NULL
 BEGIN
     BEGIN TRY
         BEGIN TRANSACTION;
 
-        CREATE TABLE [dbo].[AspNetRoles] (
+        CREATE TABLE [dbo].[AppRoles] (
             [Id] nvarchar(450) NOT NULL,
-            [Name] nvarchar(256) NULL,
-            [NormalizedName] nvarchar(256) NULL,
-            [ConcurrencyStamp] nvarchar(max) NULL,
-            CONSTRAINT [PK_AspNetRoles] PRIMARY KEY ([Id])
+            [Code] nvarchar(50) NOT NULL,
+            [Name] nvarchar(100) NOT NULL,
+            [IsActive] bit NOT NULL,
+            CONSTRAINT [PK_AppRoles] PRIMARY KEY ([Id])
         );
 
-        CREATE TABLE [dbo].[AspNetUsers] (
+        CREATE TABLE [dbo].[AppUsers] (
             [Id] nvarchar(450) NOT NULL,
+            [UserName] nvarchar(50) NOT NULL,
+            [NormalizedUserName] nvarchar(50) NOT NULL,
+            [Email] nvarchar(256) NOT NULL,
+            [NormalizedEmail] nvarchar(256) NOT NULL,
+            [PasswordHash] nvarchar(max) NOT NULL,
+            [RoleId] nvarchar(450) NOT NULL,
+            [IsActive] bit NOT NULL,
             [MustChangePassword] bit NOT NULL,
-            [UserName] nvarchar(256) NULL,
-            [NormalizedUserName] nvarchar(256) NULL,
-            [Email] nvarchar(256) NULL,
-            [NormalizedEmail] nvarchar(256) NULL,
-            [EmailConfirmed] bit NOT NULL,
-            [PasswordHash] nvarchar(max) NULL,
-            [SecurityStamp] nvarchar(max) NULL,
-            [ConcurrencyStamp] nvarchar(max) NULL,
-            [PhoneNumber] nvarchar(max) NULL,
-            [PhoneNumberConfirmed] bit NOT NULL,
-            [TwoFactorEnabled] bit NOT NULL,
+            [FailedAccessCount] int NOT NULL,
             [LockoutEnd] datetimeoffset NULL,
-            [LockoutEnabled] bit NOT NULL,
-            [AccessFailedCount] int NOT NULL,
-            CONSTRAINT [PK_AspNetUsers] PRIMARY KEY ([Id])
+            [CreatedAt] datetime2 NOT NULL,
+            [UpdatedAt] datetime2 NULL,
+            CONSTRAINT [PK_AppUsers] PRIMARY KEY ([Id]),
+            CONSTRAINT [FK_AppUsers_AppRoles_RoleId]
+                FOREIGN KEY ([RoleId]) REFERENCES [dbo].[AppRoles] ([Id]) ON DELETE NO ACTION
         );
-
-        CREATE TABLE [dbo].[AspNetRoleClaims] (
-            [Id] int NOT NULL IDENTITY,
-            [RoleId] nvarchar(450) NOT NULL,
-            [ClaimType] nvarchar(max) NULL,
-            [ClaimValue] nvarchar(max) NULL,
-            CONSTRAINT [PK_AspNetRoleClaims] PRIMARY KEY ([Id]),
-            CONSTRAINT [FK_AspNetRoleClaims_AspNetRoles_RoleId]
-                FOREIGN KEY ([RoleId]) REFERENCES [dbo].[AspNetRoles] ([Id]) ON DELETE CASCADE
-        );
-
-        CREATE TABLE [dbo].[AspNetUserClaims] (
-            [Id] int NOT NULL IDENTITY,
-            [UserId] nvarchar(450) NOT NULL,
-            [ClaimType] nvarchar(max) NULL,
-            [ClaimValue] nvarchar(max) NULL,
-            CONSTRAINT [PK_AspNetUserClaims] PRIMARY KEY ([Id]),
-            CONSTRAINT [FK_AspNetUserClaims_AspNetUsers_UserId]
-                FOREIGN KEY ([UserId]) REFERENCES [dbo].[AspNetUsers] ([Id]) ON DELETE CASCADE
-        );
-
-        CREATE TABLE [dbo].[AspNetUserLogins] (
-            [LoginProvider] nvarchar(128) NOT NULL,
-            [ProviderKey] nvarchar(128) NOT NULL,
-            [ProviderDisplayName] nvarchar(max) NULL,
-            [UserId] nvarchar(450) NOT NULL,
-            CONSTRAINT [PK_AspNetUserLogins] PRIMARY KEY ([LoginProvider], [ProviderKey]),
-            CONSTRAINT [FK_AspNetUserLogins_AspNetUsers_UserId]
-                FOREIGN KEY ([UserId]) REFERENCES [dbo].[AspNetUsers] ([Id]) ON DELETE CASCADE
-        );
-
-        CREATE TABLE [dbo].[AspNetUserRoles] (
-            [UserId] nvarchar(450) NOT NULL,
-            [RoleId] nvarchar(450) NOT NULL,
-            CONSTRAINT [PK_AspNetUserRoles] PRIMARY KEY ([UserId], [RoleId]),
-            CONSTRAINT [FK_AspNetUserRoles_AspNetRoles_RoleId]
-                FOREIGN KEY ([RoleId]) REFERENCES [dbo].[AspNetRoles] ([Id]) ON DELETE CASCADE,
-            CONSTRAINT [FK_AspNetUserRoles_AspNetUsers_UserId]
-                FOREIGN KEY ([UserId]) REFERENCES [dbo].[AspNetUsers] ([Id]) ON DELETE CASCADE
-        );
-
-        CREATE TABLE [dbo].[AspNetUserTokens] (
-            [UserId] nvarchar(450) NOT NULL,
-            [LoginProvider] nvarchar(128) NOT NULL,
-            [Name] nvarchar(128) NOT NULL,
-            [Value] nvarchar(max) NULL,
-            CONSTRAINT [PK_AspNetUserTokens] PRIMARY KEY ([UserId], [LoginProvider], [Name]),
-            CONSTRAINT [FK_AspNetUserTokens_AspNetUsers_UserId]
-                FOREIGN KEY ([UserId]) REFERENCES [dbo].[AspNetUsers] ([Id]) ON DELETE CASCADE
-        );
+        CREATE UNIQUE INDEX [IX_AppRoles_Code] ON [dbo].[AppRoles] ([Code]);
+        CREATE UNIQUE INDEX [IX_AppUsers_NormalizedUserName]
+            ON [dbo].[AppUsers] ([NormalizedUserName]);
+        CREATE UNIQUE INDEX [IX_AppUsers_NormalizedEmail]
+            ON [dbo].[AppUsers] ([NormalizedEmail]);
 
         CREATE TABLE [dbo].[Books] (
             [BookId] bigint NOT NULL IDENTITY,
@@ -196,7 +212,7 @@ BEGIN
             [SalesOrderId] bigint NOT NULL,
             [BookId] bigint NOT NULL,
             [SKUSnapshot] nvarchar(30) NOT NULL,
-            [BookTitleSnapshot] nvarchar(200) NOT NULL,
+            [BookTitleSnapshot] nvarchar(300) NOT NULL,
             [Quantity] int NOT NULL,
             [UnitPrice] decimal(18, 0) NOT NULL,
             [LineTotal] decimal(18, 0) NOT NULL,
@@ -210,15 +226,6 @@ BEGIN
                 FOREIGN KEY ([SalesOrderId]) REFERENCES [dbo].[SalesOrders] ([SalesOrderId]) ON DELETE CASCADE
         );
 
-        CREATE UNIQUE INDEX [RoleNameIndex] ON [dbo].[AspNetRoles] ([NormalizedName])
-            WHERE [NormalizedName] IS NOT NULL;
-        CREATE INDEX [IX_AspNetRoleClaims_RoleId] ON [dbo].[AspNetRoleClaims] ([RoleId]);
-        CREATE INDEX [IX_AspNetUserClaims_UserId] ON [dbo].[AspNetUserClaims] ([UserId]);
-        CREATE INDEX [IX_AspNetUserLogins_UserId] ON [dbo].[AspNetUserLogins] ([UserId]);
-        CREATE INDEX [IX_AspNetUserRoles_RoleId] ON [dbo].[AspNetUserRoles] ([RoleId]);
-        CREATE INDEX [EmailIndex] ON [dbo].[AspNetUsers] ([NormalizedEmail]);
-        CREATE UNIQUE INDEX [UserNameIndex] ON [dbo].[AspNetUsers] ([NormalizedUserName])
-            WHERE [NormalizedUserName] IS NOT NULL;
         CREATE UNIQUE INDEX [IX_Books_SKU] ON [dbo].[Books] ([SKU]);
         CREATE UNIQUE INDEX [IX_Customers_CustomerCode] ON [dbo].[Customers] ([CustomerCode]);
         CREATE INDEX [IX_AuditLogs_EntityName_EntityId_CreatedAt]
@@ -250,8 +257,8 @@ BEGIN
     END CATCH;
 END;
 
-IF OBJECT_ID(N'dbo.AspNetRoles', N'U') IS NULL
-   OR OBJECT_ID(N'dbo.AspNetUsers', N'U') IS NULL
+IF OBJECT_ID(N'dbo.AppRoles', N'U') IS NULL
+   OR OBJECT_ID(N'dbo.AppUsers', N'U') IS NULL
    OR OBJECT_ID(N'dbo.Books', N'U') IS NULL
    OR OBJECT_ID(N'dbo.Customers', N'U') IS NULL
    OR OBJECT_ID(N'dbo.AuditLogs', N'U') IS NULL
@@ -260,8 +267,17 @@ IF OBJECT_ID(N'dbo.AspNetRoles', N'U') IS NULL
    OR OBJECT_ID(N'dbo.BookCodeSequence', N'SO') IS NULL
    OR OBJECT_ID(N'dbo.CustomerCodeSequence', N'SO') IS NULL
    OR OBJECT_ID(N'dbo.SalesOrderNumberSequence', N'SO') IS NULL
+   OR COL_LENGTH(N'dbo.AppRoles', N'Code') IS NULL
+   OR COL_LENGTH(N'dbo.AppRoles', N'IsActive') IS NULL
+   OR COL_LENGTH(N'dbo.AppUsers', N'NormalizedUserName') IS NULL
+   OR COL_LENGTH(N'dbo.AppUsers', N'PasswordHash') IS NULL
+   OR COL_LENGTH(N'dbo.AppUsers', N'RoleId') IS NULL
+   OR COL_LENGTH(N'dbo.AppUsers', N'FailedAccessCount') IS NULL
    OR COL_LENGTH(N'dbo.SalesOrders', N'CustomerNameSnapshot') IS NULL
    OR COL_LENGTH(N'dbo.SalesOrders', N'Note') IS NULL
+   OR COL_LENGTH(N'dbo.SalesOrderLines', N'BookTitleSnapshot') IS NULL
+   OR (COL_LENGTH(N'dbo.SalesOrderLines', N'BookTitleSnapshot') >= 0
+       AND COL_LENGTH(N'dbo.SalesOrderLines', N'BookTitleSnapshot') < 600)
 BEGIN
     THROW 51000, 'Database exists but its schema is incomplete or outdated. Use a new empty booksalescore database.', 1;
 END;
@@ -270,48 +286,41 @@ BEGIN TRY
     BEGIN TRANSACTION;
 
     DECLARE @TestActorUserId nvarchar(450);
+    DECLARE @AdministratorRoleId nvarchar(450);
 
-    IF NOT EXISTS (SELECT 1 FROM dbo.AspNetRoles WHERE NormalizedName = N'ADMINISTRATOR')
+    IF NOT EXISTS (SELECT 1 FROM dbo.AppRoles WHERE Code = N'Administrator')
     BEGIN
-        INSERT INTO dbo.AspNetRoles (Id, Name, NormalizedName, ConcurrencyStamp)
-        VALUES (N'TST-ROLE-ADMIN', N'Administrator', N'ADMINISTRATOR', CONVERT(nvarchar(36), NEWID()));
+        INSERT INTO dbo.AppRoles (Id, Code, Name, IsActive)
+        VALUES (N'SQL-ROLE-ADMIN', N'Administrator', N'Administrator', 1);
     END;
 
-    IF NOT EXISTS (SELECT 1 FROM dbo.AspNetRoles WHERE NormalizedName = N'SALESSTAFF')
+    IF NOT EXISTS (SELECT 1 FROM dbo.AppRoles WHERE Code = N'SalesStaff')
     BEGIN
-        INSERT INTO dbo.AspNetRoles (Id, Name, NormalizedName, ConcurrencyStamp)
-        VALUES (N'TST-ROLE-SALES', N'SalesStaff', N'SALESSTAFF', CONVERT(nvarchar(36), NEWID()));
+        INSERT INTO dbo.AppRoles (Id, Code, Name, IsActive)
+        VALUES (N'SQL-ROLE-SALES', N'SalesStaff', N'SalesStaff', 1);
     END;
 
-    IF NOT EXISTS (SELECT 1 FROM dbo.AspNetUsers WHERE NormalizedUserName = N'ADMIN')
+    SELECT @AdministratorRoleId = Id
+    FROM dbo.AppRoles
+    WHERE Code = N'Administrator';
+
+    -- Demo login: username admin, password Password!23 (must change on first sign-in).
+    -- PasswordHash uses ASP.NET PasswordHasher; the plain password is not stored here.
+    IF NOT EXISTS (SELECT 1 FROM dbo.AppUsers WHERE NormalizedUserName = N'ADMIN')
     BEGIN
-        INSERT INTO dbo.AspNetUsers
+        INSERT INTO dbo.AppUsers
         (
-            Id, MustChangePassword, UserName, NormalizedUserName, Email, NormalizedEmail,
-            EmailConfirmed, PasswordHash, SecurityStamp, ConcurrencyStamp,
-            PhoneNumberConfirmed, TwoFactorEnabled, LockoutEnabled, AccessFailedCount
+            Id, UserName, NormalizedUserName, Email, NormalizedEmail, PasswordHash,
+            RoleId, IsActive, MustChangePassword, FailedAccessCount, LockoutEnd, CreatedAt
         )
         VALUES
         (
-            N'SQL-DEMO-ADMIN', 1, N'admin', N'ADMIN',
-            N'admin@example.test', N'ADMIN@EXAMPLE.TEST', 1,
+            N'SQL-DEMO-ADMIN', N'admin', N'ADMIN',
+            N'admin@example.test', N'ADMIN@EXAMPLE.TEST',
             N'AQAAAAIAAYagAAAAEJ96PYwhtOZQoZfD0ujxBGtffc70ZBp2jdE01TfNNyQ5ybbvpypQFsEbIOnW/KUWoQ==',
-            CONVERT(nvarchar(36), NEWID()), CONVERT(nvarchar(36), NEWID()),
-            0, 0, 1, 0
+            @AdministratorRoleId, 1, 1, 0, NULL, SYSUTCDATETIME()
         );
     END;
-
-    INSERT INTO dbo.AspNetUserRoles (UserId, RoleId)
-    SELECT u.Id, r.Id
-    FROM dbo.AspNetUsers AS u
-    CROSS JOIN dbo.AspNetRoles AS r
-    WHERE u.NormalizedUserName = N'ADMIN'
-      AND r.NormalizedName = N'ADMINISTRATOR'
-      AND NOT EXISTS
-      (
-          SELECT 1 FROM dbo.AspNetUserRoles AS currentRole
-          WHERE currentRole.UserId = u.Id AND currentRole.RoleId = r.Id
-      );
 
     IF NOT EXISTS (SELECT 1 FROM dbo.Customers WHERE CustomerCode = N'CUS-WALKIN')
     BEGIN
@@ -325,7 +334,7 @@ BEGIN TRY
       AND IsActive = 0;
 
     SELECT @TestActorUserId = Id
-    FROM dbo.AspNetUsers
+    FROM dbo.AppUsers
     WHERE NormalizedUserName = N'ADMIN';
 
     IF @TestActorUserId IS NULL
@@ -616,7 +625,7 @@ BEGIN TRY
         @TestActorUserId,
         N'Created',
         N'SalesOrder',
-        CONVERT(nvarchar(450), orderSeed.SalesOrderId),
+        orderSeed.OrderNumber,
         NULL,
         CONCAT(N'Status=Draft; Total=', orderSeed.TotalAmount),
         N'TESTDATA: generated sales document',
@@ -627,7 +636,7 @@ BEGIN TRY
         SELECT 1
         FROM dbo.AuditLogs AS existing
         WHERE existing.EntityName = N'SalesOrder'
-          AND existing.EntityId = CONVERT(nvarchar(450), orderSeed.SalesOrderId)
+                    AND existing.EntityId = orderSeed.OrderNumber
           AND existing.Action = N'Created'
           AND existing.Reason = N'TESTDATA: generated sales document'
     );
@@ -638,7 +647,7 @@ BEGIN TRY
         @TestActorUserId,
         eventData.Action,
         N'SalesOrder',
-        CONVERT(nvarchar(450), orderSeed.SalesOrderId),
+        orderSeed.OrderNumber,
         eventData.OldValue,
         eventData.NewValue,
         eventData.Reason,
@@ -678,7 +687,7 @@ BEGIN TRY
           SELECT 1
           FROM dbo.AuditLogs AS existing
           WHERE existing.EntityName = N'SalesOrder'
-            AND existing.EntityId = CONVERT(nvarchar(450), orderSeed.SalesOrderId)
+                        AND existing.EntityId = orderSeed.OrderNumber
             AND existing.Action = eventData.Action
             AND existing.Reason = eventData.Reason
       );

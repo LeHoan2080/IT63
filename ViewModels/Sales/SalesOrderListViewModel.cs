@@ -1,7 +1,7 @@
 
 using BookSalesCore.Models.Entities;
 
-namespace BookSalesCore.ViewModels;
+namespace BookSalesCore.ViewModels.Sales;
 
 public class SalesOrderListViewModel
 {

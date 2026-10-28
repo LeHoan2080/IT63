@@ -1,6 +1,7 @@
 using BookSalesCore.Data;
 using BookSalesCore.Models.Entities;
-using BookSalesCore.ViewModels;
+using BookSalesCore.ViewModels.Customers;
+using BookSalesCore.ViewModels.Shared;
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -230,8 +231,7 @@ public class CustomersController : Controller
 
         var isAdministrator = User.IsInRole("Administrator");
         var nextNumber = await _context.Database
-            .SqlQuery<long>($"SELECT NEXT VALUE FOR dbo.CustomerCodeSequence AS Value")
-            .SingleAsync();
+            .NextValueAsync(SqlServerSequence.CustomerCode);
 
         var customer = new Customer
         {

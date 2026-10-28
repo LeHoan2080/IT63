@@ -4,7 +4,7 @@ using BookSalesCore.Data;
 using Microsoft.AspNetCore.Mvc;
 using BookSalesCore.Models;
 using BookSalesCore.Models.Entities;
-using BookSalesCore.ViewModels;
+using BookSalesCore.ViewModels.Dashboard;
 using Microsoft.EntityFrameworkCore;
 
 namespace BookSalesCore.Controllers;

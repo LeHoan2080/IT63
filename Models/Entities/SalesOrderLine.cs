@@ -19,7 +19,7 @@ public class SalesOrderLine
     public string SKUSnapshot { get; set; } = string.Empty;
 
     [Required]
-    [StringLength(200)]
+    [StringLength(300)]
     public string BookTitleSnapshot { get; set; } = string.Empty;
 
     public int Quantity { get; set; }

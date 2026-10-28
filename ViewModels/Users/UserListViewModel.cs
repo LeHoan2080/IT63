@@ -1,5 +1,5 @@
 
-namespace BookSalesCore.ViewModels;
+namespace BookSalesCore.ViewModels.Users;
 
 public class UserListItemViewModel
 {

@@ -1,7 +1,7 @@
 
 using System.ComponentModel.DataAnnotations;
 
-namespace BookSalesCore.ViewModels;
+namespace BookSalesCore.ViewModels.Account;
 
 public class LoginViewModel
 {

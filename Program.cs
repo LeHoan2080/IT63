@@ -1,9 +1,12 @@
 
 using BookSalesCore.Data;
 using BookSalesCore.Models;
+using BookSalesCore.Services;
+using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using System.Security.Claims;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -20,43 +23,65 @@ builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseSqlServer(connectionString));
 
 builder.Services
-    .AddDefaultIdentity<ApplicationUser>(options =>
+    .AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
+    .AddCookie(options =>
     {
-        options.User.RequireUniqueEmail = true;
+        options.LoginPath = "/Account/Login";
+        options.LogoutPath = "/Account/Logout";
+        options.AccessDeniedPath = "/Account/AccessDenied";
 
-        options.Password.RequiredLength = 10;
-        options.Password.RequireDigit = true;
-        options.Password.RequireUppercase = true;
-        options.Password.RequireLowercase = true;
-        options.Password.RequireNonAlphanumeric = true;
+        options.Cookie.Name = "BookSales.Auth";
+        options.Cookie.HttpOnly = true;
+        options.Cookie.SameSite = SameSiteMode.Lax;
+        options.Cookie.SecurePolicy =
+            CookieSecurePolicy.SameAsRequest;
 
-        options.Lockout.AllowedForNewUsers = true;
-        options.Lockout.MaxFailedAccessAttempts = 5;
-        options.Lockout.DefaultLockoutTimeSpan =
-            TimeSpan.FromMinutes(15);
+        options.ExpireTimeSpan = TimeSpan.FromHours(8);
+        options.SlidingExpiration = true;
 
-        options.SignIn.RequireConfirmedAccount = false;
-    })
-    .AddRoles<IdentityRole>()
-    .AddEntityFrameworkStores<ApplicationDbContext>();
+        options.Events.OnValidatePrincipal = async context =>
+        {
+            var userId = context.Principal?.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (string.IsNullOrWhiteSpace(userId))
+            {
+                context.RejectPrincipal();
+                await context.HttpContext.SignOutAsync(
+                    CookieAuthenticationDefaults.AuthenticationScheme);
+                return;
+            }
 
-builder.Services.ConfigureApplicationCookie(options =>
-{
-    options.LoginPath = "/Account/Login";
-    options.LogoutPath = "/Account/Logout";
-    options.AccessDeniedPath = "/Account/AccessDenied";
+            var authService = context.HttpContext.RequestServices
+                .GetRequiredService<AuthService>();
+            var user = await authService.GetActiveUserAsync(userId);
+            if (user is null)
+            {
+                context.RejectPrincipal();
+                await context.HttpContext.SignOutAsync(
+                    CookieAuthenticationDefaults.AuthenticationScheme);
+                return;
+            }
 
-    options.Cookie.Name = "BookSales.Auth";
-    options.Cookie.HttpOnly = true;
-    options.Cookie.SameSite = SameSiteMode.Lax;
-    options.Cookie.SecurePolicy =
-        CookieSecurePolicy.SameAsRequest;
-
-    options.ExpireTimeSpan = TimeSpan.FromHours(8);
-    options.SlidingExpiration = true;
-});
+            var refreshedPrincipal = UserClaimsPrincipalFactory.Create(user);
+            var currentClaims = context.Principal!.Claims
+                .Select(claim => (claim.Type, claim.Value))
+                .OrderBy(claim => claim.Type)
+                .ThenBy(claim => claim.Value);
+            var refreshedClaims = refreshedPrincipal.Claims
+                .Select(claim => (claim.Type, claim.Value))
+                .OrderBy(claim => claim.Type)
+                .ThenBy(claim => claim.Value);
+            if (!currentClaims.SequenceEqual(refreshedClaims))
+            {
+                context.ReplacePrincipal(refreshedPrincipal);
+                context.ShouldRenew = true;
+            }
+        };
+    });
 
 builder.Services.AddControllersWithViews();
+builder.Services.AddScoped<AuthService>();
+builder.Services.AddScoped<Microsoft.AspNetCore.Identity.IPasswordHasher<AppUser>,
+    Microsoft.AspNetCore.Identity.PasswordHasher<AppUser>>();
 
 builder.Services.AddAuthorization(options =>
 {
@@ -94,12 +119,10 @@ app.Use(async (context, next) =>
 
         if (!allowedPaths)
         {
-            var userManager = context.RequestServices
-                .GetRequiredService<UserManager<ApplicationUser>>();
-
-            var user = await userManager.GetUserAsync(context.User);
-
-            if (user?.MustChangePassword == true)
+            if (bool.TryParse(
+                    context.User.FindFirstValue("MustChangePassword"),
+                    out var mustChangePassword) &&
+                mustChangePassword)
             {
                 context.Response.Redirect(
                     "/Account/ChangePassword");

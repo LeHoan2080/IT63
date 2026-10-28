@@ -1,13 +1,13 @@
 
 using BookSalesCore.Data;
-using BookSalesCore.Models;
 using BookSalesCore.Models.Entities;
-using BookSalesCore.ViewModels;
+using BookSalesCore.ViewModels.Sales;
+using BookSalesCore.ViewModels.Shared;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.EntityFrameworkCore;
+using System.Security.Claims;
 
 namespace BookSalesCore.Controllers;
 
@@ -17,16 +17,13 @@ public class SalesController : Controller
     private const decimal MaximumVndAmount = 999999999999999999m;
 
     private readonly ApplicationDbContext _context;
-    private readonly UserManager<ApplicationUser> _userManager;
     private readonly ILogger<SalesController> _logger;
 
     public SalesController(
         ApplicationDbContext context,
-        UserManager<ApplicationUser> userManager,
         ILogger<SalesController> logger)
     {
         _context = context;
-        _userManager = userManager;
         _logger = logger;
     }
 
@@ -55,7 +52,7 @@ public class SalesController : Controller
         // Nhân viên chỉ xem chứng từ do mình tạo.
         if (User.IsInRole("SalesStaff"))
         {
-            var userId = _userManager.GetUserId(User);
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
 
             if (string.IsNullOrEmpty(userId))
             {
@@ -252,7 +249,7 @@ public class SalesController : Controller
             return View(model);
         }
 
-        var userId = _userManager.GetUserId(User);
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
 
         if (string.IsNullOrEmpty(userId))
         {
@@ -340,9 +337,7 @@ public class SalesController : Controller
         {
             // Cấp số chứng từ bằng SQL Server SEQUENCE.
             var nextNumber = await _context.Database
-                .SqlQuery<long>(
-                    $"SELECT NEXT VALUE FOR dbo.SalesOrderNumberSequence AS Value")
-                .SingleAsync();
+                .NextValueAsync(SqlServerSequence.SalesOrderNumber);
 
             var now = DateTime.UtcNow;
 
@@ -442,7 +437,7 @@ public class SalesController : Controller
 
         if (User.IsInRole("SalesStaff"))
         {
-            var userId = _userManager.GetUserId(User);
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
 
             if (string.IsNullOrEmpty(userId))
             {
@@ -467,20 +462,22 @@ public class SalesController : Controller
         ViewData["CanManageOrder"] =
             User.IsInRole("Administrator") ||
             (User.IsInRole("SalesStaff") &&
-             order.CreatedByUserId == _userManager.GetUserId(User));
+             order.CreatedByUserId == User.FindFirstValue(ClaimTypes.NameIdentifier));
 
         ViewData["CanCancelConfirmed"] = User.IsInRole("Administrator");
         ViewData["LocalOrderDate"] = TimeZoneInfo.ConvertTimeFromUtc(
             DateTime.SpecifyKind(order.OrderDate, DateTimeKind.Utc),
             GetVietnamTimeZone());
-        ViewData["CreatedByName"] =
-            (await _userManager.FindByIdAsync(order.CreatedByUserId))?.UserName
+        ViewData["CreatedByName"] = await _context.AppUsers
+            .Where(user => user.Id == order.CreatedByUserId)
+            .Select(user => user.UserName)
+            .FirstOrDefaultAsync()
             ?? "Tài khoản không còn hoạt động";
 
         var localTimeZone = GetVietnamTimeZone();
         var history = await (
             from audit in _context.AuditLogs.AsNoTracking()
-            join user in _userManager.Users
+            join user in _context.AppUsers
                 on audit.UserId equals user.Id into auditUsers
             from user in auditUsers.DefaultIfEmpty()
             where audit.EntityName == "SalesOrder" &&
@@ -693,7 +690,7 @@ public class SalesController : Controller
             return View(model);
         }
 
-        var userId = _userManager.GetUserId(User);
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
 
         if (string.IsNullOrEmpty(userId))
         {
@@ -807,7 +804,7 @@ public class SalesController : Controller
 
         if (User.IsInRole("SalesStaff"))
         {
-            var userId = _userManager.GetUserId(User);
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
 
             if (string.IsNullOrEmpty(userId))
             {
@@ -949,7 +946,7 @@ public class SalesController : Controller
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Send(long id)
     {
-        var userId = _userManager.GetUserId(User);
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
 
         if (string.IsNullOrEmpty(userId))
             return Challenge();
@@ -1044,7 +1041,7 @@ public class SalesController : Controller
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Confirm(long id)
     {
-        var userId = _userManager.GetUserId(User);
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
 
         if (string.IsNullOrEmpty(userId))
             return Challenge();
@@ -1167,7 +1164,7 @@ public class SalesController : Controller
         if (order == null)
             return NotFound();
 
-        var userId = _userManager.GetUserId(User);
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
 
         if (string.IsNullOrEmpty(userId))
             return Challenge();
@@ -1187,7 +1184,7 @@ public class SalesController : Controller
     public async Task<IActionResult> Cancel(
         SalesOrderCancelViewModel model)
     {
-        var userId = _userManager.GetUserId(User);
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
 
         if (string.IsNullOrEmpty(userId))
             return Challenge();

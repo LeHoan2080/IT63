@@ -1,12 +1,10 @@
 
 using System.ComponentModel.DataAnnotations;
 
-namespace BookSalesCore.ViewModels;
+namespace BookSalesCore.ViewModels.Books;
 
-public class BookEditViewModel
+public class BookCreateViewModel
 {
-    public long BookId { get; set; }
-
     [StringLength(20)]
     [Display(Name = "ISBN")]
     public string? ISBN { get; set; }
@@ -26,5 +24,5 @@ public class BookEditViewModel
     public decimal SalePrice { get; set; }
 
     [Display(Name = "Đang kinh doanh")]
-    public bool IsActive { get; set; }
+    public bool IsActive { get; set; } = true;
 }

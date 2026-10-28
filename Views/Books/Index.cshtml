@@ -1,4 +1,4 @@
-@model BookSalesCore.ViewModels.BookListViewModel
+@model BookListViewModel
 
 @{
     ViewData["Title"] = "Danh mục sách";
@@ -18,14 +18,6 @@
         </a>
     }
 </div>
-
-@if (TempData["SuccessMessage"] is string message)
-{
-    <div class="alert alert-success alert-dismissible fade show" role="alert">
-        @message
-        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Đóng"></button>
-    </div>
-}
 
 <section class="card mb-4">
     <div class="card-header">
@@ -118,7 +110,7 @@
             </tbody>
         </table>
     </div>
-    @if (ViewData["Pagination"] is BookSalesCore.ViewModels.PaginationViewModel pagination)
+    @if (ViewData["Pagination"] is PaginationViewModel pagination)
     {
         <div class="card-body border-top">
             @await Html.PartialAsync("_Pagination", pagination)
