@@ -2,13 +2,17 @@
 using BookSalesCore.Data;
 using BookSalesCore.Models;
 using BookSalesCore.Services;
+using BookSalesCore.Services.Reports;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
+using QuestPDF.Infrastructure;
 using System.Security.Claims;
 
 var builder = WebApplication.CreateBuilder(args);
+
+QuestPDF.Settings.License = LicenseType.Community;
 
 var connectionString =
     builder.Configuration.GetConnectionString("DefaultConnection");
@@ -80,6 +84,7 @@ builder.Services
 
 builder.Services.AddControllersWithViews();
 builder.Services.AddScoped<AuthService>();
+builder.Services.AddScoped<IReportsPdfService, ReportsPdfService>();
 builder.Services.AddScoped<Microsoft.AspNetCore.Identity.IPasswordHasher<AppUser>,
     Microsoft.AspNetCore.Identity.PasswordHasher<AppUser>>();
 

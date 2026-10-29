@@ -1,6 +1,7 @@
 
 using BookSalesCore.Data;
 using BookSalesCore.Models.Entities;
+using BookSalesCore.Services.Reports;
 using BookSalesCore.ViewModels.Sales;
 using BookSalesCore.ViewModels.Shared;
 using Microsoft.AspNetCore.Authorization;
@@ -17,13 +18,16 @@ public class SalesController : Controller
     private const decimal MaximumVndAmount = 999999999999999999m;
 
     private readonly ApplicationDbContext _context;
+    private readonly IReportsPdfService _reportsPdfService;
     private readonly ILogger<SalesController> _logger;
 
     public SalesController(
         ApplicationDbContext context,
+        IReportsPdfService reportsPdfService,
         ILogger<SalesController> logger)
     {
         _context = context;
+        _reportsPdfService = reportsPdfService;
         _logger = logger;
     }
 
@@ -182,6 +186,120 @@ public class SalesController : Controller
         };
 
         return View(model);
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> ExportPdf(
+        string? searchTerm,
+        string? status,
+        DateTime? fromDate,
+        DateTime? toDate,
+        long? customerId)
+    {
+        if (fromDate.HasValue && toDate.HasValue &&
+            fromDate.Value.Date > toDate.Value.Date)
+        {
+            return BadRequest("Ngày bắt đầu không được lớn hơn ngày kết thúc.");
+        }
+
+        var query = _context.SalesOrders
+            .AsNoTracking()
+            .Include(order => order.Customer)
+            .AsQueryable();
+
+        if (User.IsInRole("SalesStaff"))
+        {
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+
+            if (string.IsNullOrEmpty(userId))
+            {
+                return Challenge();
+            }
+
+            query = query.Where(order => order.CreatedByUserId == userId);
+        }
+        else if (!User.IsInRole("Administrator"))
+        {
+            return Forbid();
+        }
+
+        if (!string.IsNullOrWhiteSpace(searchTerm))
+        {
+            searchTerm = searchTerm.Trim();
+            query = query.Where(order =>
+                order.OrderNumber.Contains(searchTerm) ||
+                order.Customer.CustomerCode.Contains(searchTerm) ||
+                order.CustomerNameSnapshot.Contains(searchTerm) ||
+                order.Customer.CustomerName.Contains(searchTerm));
+        }
+
+        var vietnamTimeZone = GetVietnamTimeZone();
+        if (fromDate.HasValue)
+        {
+            var startUtc = ConvertVietnamDateToUtc(
+                fromDate.Value.Date,
+                vietnamTimeZone);
+            query = query.Where(order => order.OrderDate >= startUtc);
+        }
+
+        if (toDate.HasValue)
+        {
+            var endUtcExclusive = ConvertVietnamDateToUtc(
+                toDate.Value.Date.AddDays(1),
+                vietnamTimeZone);
+            query = query.Where(order => order.OrderDate < endUtcExclusive);
+        }
+
+        if (customerId.HasValue)
+        {
+            query = query.Where(order => order.CustomerId == customerId.Value);
+        }
+
+        var allowedStatuses = new[]
+        {
+            "Draft",
+            "Sent",
+            "Confirmed",
+            "Cancelled"
+        };
+
+        if (!string.IsNullOrWhiteSpace(status) &&
+            allowedStatuses.Contains(status))
+        {
+            query = query.Where(order => order.Status == status);
+        }
+        else
+        {
+            status = null;
+        }
+
+        var orders = await query
+            .OrderByDescending(order => order.OrderDate)
+            .ThenByDescending(order => order.SalesOrderId)
+            .ToListAsync();
+
+        foreach (var order in orders)
+        {
+            order.OrderDate = TimeZoneInfo.ConvertTimeFromUtc(
+                DateTime.SpecifyKind(order.OrderDate, DateTimeKind.Utc),
+                vietnamTimeZone);
+        }
+
+        var model = new SalesOrderListViewModel
+        {
+            SearchTerm = searchTerm,
+            Status = status,
+            CustomerId = customerId,
+            FromDate = fromDate,
+            ToDate = toDate,
+            TotalItems = orders.Count,
+            SalesOrders = orders
+        };
+
+        var pdf = _reportsPdfService.GenerateSalesOrdersPdf(model);
+        var fileName = $"sales-orders-{DateTime.UtcNow:yyyyMMdd-HHmmss}.pdf";
+
+        return File(pdf, "application/pdf", fileName);
     }
 
     // Hiển thị biểu mẫu tạo chứng từ

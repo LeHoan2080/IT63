@@ -33,6 +33,12 @@
         </div>
         <div class="col-md-3 d-flex gap-2">
             <button type="submit" class="btn btn-primary">Lọc</button>
+            <button type="submit"
+                    formmethod="get"
+                    formaction="@Url.Action("ExportPdf", "Customers")"
+                    class="btn btn-outline-primary">
+                Xuất PDF
+            </button>
             <a asp-action="Index" class="btn btn-outline-secondary">Xóa</a>
         </div>
     </div>

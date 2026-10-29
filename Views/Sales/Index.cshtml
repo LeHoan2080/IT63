@@ -58,6 +58,12 @@
                 <input type="hidden" name="customerId" value="@Model.CustomerId" />
             }
             <button type="submit" class="btn btn-primary">Lọc</button>
+            <button type="submit"
+                    formmethod="get"
+                    formaction="@Url.Action("ExportPdf", "Sales")"
+                    class="btn btn-outline-primary">
+                Xuất PDF
+            </button>
             <a asp-action="Index" asp-route-customerId="@Model.CustomerId"
                class="btn btn-outline-secondary">Xóa</a>
         </div>

@@ -1,5 +1,6 @@
 using BookSalesCore.Data;
 using BookSalesCore.Models.Entities;
+using BookSalesCore.Services.Reports;
 using BookSalesCore.ViewModels.Reports;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -12,11 +13,15 @@ namespace BookSalesCore.Controllers;
 public class ReportsController : Controller
 {
     private readonly ApplicationDbContext _context;
+    private readonly IReportsPdfService _reportsPdfService;
     private readonly TimeZoneInfo _vietnamTimeZone;
 
-    public ReportsController(ApplicationDbContext context)
+    public ReportsController(
+        ApplicationDbContext context,
+        IReportsPdfService reportsPdfService)
     {
         _context = context;
+        _reportsPdfService = reportsPdfService;
 
         try
         {
@@ -181,6 +186,29 @@ public class ReportsController : Controller
         };
 
         return View(viewModel);
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> ExportPdf(
+        DateTime? fromDate,
+        DateTime? toDate)
+    {
+        var result = await Index(fromDate, toDate);
+
+        if (result is not ViewResult { Model: ReportsIndexViewModel model })
+        {
+            return result;
+        }
+
+        if (!ModelState.IsValid)
+        {
+            return BadRequest(ModelState);
+        }
+
+        var pdf = _reportsPdfService.GenerateBusinessReportPdf(model);
+        var fileName = $"business-report-{DateTime.UtcNow:yyyyMMdd-HHmmss}.pdf";
+
+        return File(pdf, "application/pdf", fileName);
     }
 
     private DateTime ConvertVietnamDateToUtc(DateTime vietnamDate)

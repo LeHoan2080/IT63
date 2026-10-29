@@ -1,5 +1,6 @@
 using BookSalesCore.Data;
 using BookSalesCore.Models.Entities;
+using BookSalesCore.Services.Reports;
 using BookSalesCore.ViewModels.Customers;
 using BookSalesCore.ViewModels.Shared;
 using System.Security.Claims;
@@ -13,10 +14,14 @@ namespace BookSalesCore.Controllers;
 public class CustomersController : Controller
 {
     private readonly ApplicationDbContext _context;
+    private readonly IReportsPdfService _reportsPdfService;
 
-    public CustomersController(ApplicationDbContext context)
+    public CustomersController(
+        ApplicationDbContext context,
+        IReportsPdfService reportsPdfService)
     {
         _context = context;
+        _reportsPdfService = reportsPdfService;
     }
 
     public async Task<IActionResult> Index(
@@ -95,6 +100,55 @@ public class CustomersController : Controller
         };
 
         return View(model);
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> ExportPdf(
+        string? searchTerm,
+        string? status)
+    {
+        var query = _context.Customers.AsNoTracking();
+
+        if (!string.IsNullOrWhiteSpace(searchTerm))
+        {
+            searchTerm = searchTerm.Trim();
+
+            query = query.Where(customer =>
+                customer.CustomerCode.Contains(searchTerm) ||
+                customer.CustomerName.Contains(searchTerm) ||
+                (customer.Phone != null && customer.Phone.Contains(searchTerm)) ||
+                (customer.Email != null && customer.Email.Contains(searchTerm)));
+        }
+
+        if (status == "active")
+        {
+            query = query.Where(customer => customer.IsActive);
+        }
+        else if (status == "inactive")
+        {
+            query = query.Where(customer => !customer.IsActive);
+        }
+        else
+        {
+            status = null;
+        }
+
+        var customers = await query
+            .OrderBy(customer => customer.CustomerId)
+            .ToListAsync();
+
+        var model = new CustomerListViewModel
+        {
+            SearchTerm = searchTerm,
+            Status = status,
+            TotalItems = customers.Count,
+            Customers = customers
+        };
+
+        var pdf = _reportsPdfService.GenerateCustomersPdf(model);
+        var fileName = $"customers-{DateTime.UtcNow:yyyyMMdd-HHmmss}.pdf";
+
+        return File(pdf, "application/pdf", fileName);
     }
 
     [HttpGet]
