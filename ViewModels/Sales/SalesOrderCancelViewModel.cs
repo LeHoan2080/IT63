@@ -7,6 +7,11 @@ public class SalesOrderCancelViewModel
 {
     public long SalesOrderId { get; set; }
 
+    // Chỉ dùng để hiển thị; luôn nạp lại từ database, không tin dữ liệu gửi lên.
+    public string OrderNumber { get; set; } = string.Empty;
+
+    public string Status { get; set; } = string.Empty;
+
     [Required(ErrorMessage = "Vui lòng nhập lý do hủy.")]
     [StringLength(
         500,

@@ -9,7 +9,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace BookSalesCore.Controllers;
 
-[Authorize(Roles = "Administrator,SalesStaff")]
+[Authorize(Roles = "Administrator,SalesManager,SalesStaff")]
 public class BooksController : Controller
 {
     private readonly ApplicationDbContext _context;

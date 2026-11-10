@@ -22,10 +22,11 @@ public class HomeController : Controller
 
     public async Task<IActionResult> Index()
     {
-        var isAdministrator = User.IsInRole("Administrator");
+        var canViewAllOrders =
+            User.IsInRole("Administrator") || User.IsInRole("SalesManager");
         var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
 
-        if (!isAdministrator &&
+        if (!canViewAllOrders &&
             (!User.IsInRole("SalesStaff") || string.IsNullOrWhiteSpace(userId)))
         {
             return Forbid();
@@ -39,7 +40,7 @@ public class HomeController : Controller
         var utcEndExclusive = ConvertVietnamDateToUtc(today.AddDays(1));
 
         IQueryable<SalesOrder> orders = _context.SalesOrders.AsNoTracking();
-        if (!isAdministrator)
+        if (!canViewAllOrders)
         {
             orders = orders.Where(order => order.CreatedByUserId == userId);
         }

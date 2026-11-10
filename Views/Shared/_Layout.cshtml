@@ -77,7 +77,7 @@
                     </span>
                     <span class="account-info">
                         <strong>@User.Identity?.Name</strong>
-                        <small>@(User.IsInRole("Administrator") ? "Quản trị viên" : "Nhân viên bán hàng")</small>
+                        <small>@(User.IsInRole("Administrator") ? "Quản trị viên" : User.IsInRole("SalesManager") ? "Quản lý bán hàng" : "Nhân viên bán hàng")</small>
                     </span>
                     <a asp-controller="Account" asp-action="ChangePassword"
                        class="account-settings" title="Đổi mật khẩu" aria-label="Đổi mật khẩu">⋯</a>

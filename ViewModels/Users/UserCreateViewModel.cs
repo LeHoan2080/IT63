@@ -20,7 +20,7 @@ public class UserCreateViewModel
     public string Email { get; set; } = string.Empty;
 
     [Required(ErrorMessage = "Vui lòng chọn vai trò.")]
-    [RegularExpression("^(Administrator|SalesStaff)$",
+    [RegularExpression("^(Administrator|SalesManager|SalesStaff)$",
         ErrorMessage = "Vai trò không hợp lệ.")]
     [Display(Name = "Vai trò")]
     public string Role { get; set; } = "SalesStaff";

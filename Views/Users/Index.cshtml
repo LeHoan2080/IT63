@@ -96,6 +96,12 @@
                                         Administrator
                                     </span>
                                 }
+                                else if (user.Role == "SalesManager")
+                                {
+                                    <span class="badge text-bg-info">
+                                        SalesManager
+                                    </span>
+                                }
                                 else if (user.Role == "SalesStaff")
                                 {
                                     <span class="badge text-bg-secondary">
@@ -196,6 +202,10 @@
                                                 <option value="Administrator"
                                                         selected="@(user.Role == "Administrator" ? "selected" : null)">
                                                     Administrator
+                                                </option>
+                                                <option value="SalesManager"
+                                                        selected="@(user.Role == "SalesManager" ? "selected" : null)">
+                                                    SalesManager
                                                 </option>
                                                 <option value="SalesStaff"
                                                         selected="@(user.Role == "SalesStaff" ? "selected" : null)">
