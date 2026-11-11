@@ -19,6 +19,8 @@
       - 125 customers (with active and inactive examples)
       - 240 sales documents spanning Draft, Sent, Confirmed, and Cancelled
       - 480 sales-order lines
+      - 20 manual-test sales documents (TST-MT-0001..0020) dated
+        10/10/2026 to 04/11/2026 (Vietnam time), with 35 lines
       - Audit events for catalog and sales data
 */
 
@@ -298,6 +300,12 @@ BEGIN TRY
     BEGIN
         INSERT INTO dbo.AppRoles (Id, Code, Name, IsActive)
         VALUES (N'SQL-ROLE-SALES', N'SalesStaff', N'SalesStaff', 1);
+    END;
+
+    IF NOT EXISTS (SELECT 1 FROM dbo.AppRoles WHERE Code = N'SalesManager')
+    BEGIN
+        INSERT INTO dbo.AppRoles (Id, Code, Name, IsActive)
+        VALUES (N'SQL-ROLE-SALES-MANAGER', N'SalesManager', N'SalesManager', 1);
     END;
 
     SELECT @AdministratorRoleId = Id
@@ -690,6 +698,169 @@ BEGIN TRY
                         AND existing.EntityId = orderSeed.OrderNumber
             AND existing.Action = eventData.Action
             AND existing.Reason = eventData.Reason
+      );
+
+    -- Manual test documents: 20 sales documents spread from 10/10/2026 to 04/11/2026
+    -- (times are Vietnam local time, stored as UTC = local - 7 hours).
+    CREATE TABLE #ManualTestOrder
+    (
+        OrderNumber nvarchar(30) NOT NULL PRIMARY KEY,
+        LocalOrderDate datetime2 NOT NULL,
+        CustomerCode nvarchar(30) NOT NULL,
+        Status nvarchar(20) NOT NULL,
+        WasSent bit NOT NULL,
+        LocalSentAt datetime2 NULL,
+        LocalConfirmedAt datetime2 NULL,
+        LocalCancelledAt datetime2 NULL,
+        CancellationReason nvarchar(500) NULL,
+        Note nvarchar(1000) NULL
+    );
+
+    INSERT INTO #ManualTestOrder
+        (OrderNumber, LocalOrderDate, CustomerCode, Status, WasSent, LocalSentAt, LocalConfirmedAt, LocalCancelledAt, CancellationReason, Note)
+    VALUES
+        (N'TST-MT-0001', '2026-10-10T09:15:00', N'TST-CUS-0001', N'Confirmed', 1, '2026-10-10T10:15:00', '2026-10-11T10:00:00', NULL, NULL, N'Đơn sách thiếu nhi cho trường mầm non'),
+        (N'TST-MT-0002', '2026-10-11T14:30:00', N'TST-CUS-0002', N'Confirmed', 1, '2026-10-11T15:30:00', '2026-10-12T10:00:00', NULL, NULL, N'Khách đặt bổ sung sách kỹ năng'),
+        (N'TST-MT-0003', '2026-10-13T10:05:00', N'TST-CUS-0003', N'Cancelled', 1, '2026-10-13T11:05:00', NULL, '2026-10-14T09:30:00', N'Khách hàng đổi ý, không mua nữa', N'Báo giá sách lịch sử'),
+        (N'TST-MT-0004', '2026-10-14T15:40:00', N'TST-CUS-0004', N'Confirmed', 1, '2026-10-14T16:40:00', '2026-10-15T10:00:00', NULL, NULL, N'Đơn sách văn học cho thư viện'),
+        (N'TST-MT-0005', '2026-10-15T08:50:00', N'TST-CUS-0005', N'Confirmed', 1, '2026-10-15T09:50:00', '2026-10-16T10:00:00', NULL, NULL, NULL),
+        (N'TST-MT-0006', '2026-10-17T11:20:00', N'TST-CUS-0006', N'Confirmed', 1, '2026-10-17T12:20:00', '2026-10-18T10:00:00', NULL, NULL, N'Giao trước ngày 20/10'),
+        (N'TST-MT-0007', '2026-10-18T16:10:00', N'TST-CUS-0007', N'Cancelled', 0, NULL, NULL, '2026-10-19T09:00:00', N'Lập trùng báo giá, hủy bản nháp', NULL),
+        (N'TST-MT-0008', '2026-10-20T09:40:00', N'TST-CUS-0008', N'Confirmed', 1, '2026-10-20T10:40:00', '2026-10-21T10:00:00', NULL, NULL, N'Quà tặng Ngày Phụ nữ Việt Nam'),
+        (N'TST-MT-0009', '2026-10-21T13:15:00', N'TST-CUS-0010', N'Confirmed', 1, '2026-10-21T14:15:00', '2026-10-22T10:00:00', NULL, NULL, NULL),
+        (N'TST-MT-0010', '2026-10-22T10:30:00', N'TST-CUS-0011', N'Sent', 1, '2026-10-22T11:30:00', NULL, NULL, NULL, N'Chờ khách xác nhận số lượng'),
+        (N'TST-MT-0011', '2026-10-23T15:05:00', N'TST-CUS-0012', N'Confirmed', 1, '2026-10-23T16:05:00', '2026-10-24T10:00:00', NULL, NULL, N'Đơn sách khoa học cho câu lạc bộ'),
+        (N'TST-MT-0012', '2026-10-24T09:00:00', N'TST-CUS-0013', N'Cancelled', 1, '2026-10-24T10:00:00', NULL, '2026-10-25T14:00:00', N'Khách chọn nhà cung cấp khác do giá', NULL),
+        (N'TST-MT-0013', '2026-10-26T14:20:00', N'TST-CUS-0014', N'Confirmed', 1, '2026-10-26T15:20:00', '2026-10-27T10:00:00', NULL, NULL, NULL),
+        (N'TST-MT-0014', '2026-10-27T10:45:00', N'TST-CUS-0015', N'Sent', 1, '2026-10-27T11:45:00', NULL, NULL, NULL, N'Báo giá theo yêu cầu qua email'),
+        (N'TST-MT-0015', '2026-10-28T16:30:00', N'TST-CUS-0016', N'Confirmed', 1, '2026-10-28T17:00:00', '2026-10-29T10:00:00', NULL, NULL, NULL),
+        (N'TST-MT-0016', '2026-10-29T09:25:00', N'TST-CUS-0017', N'Draft', 0, NULL, NULL, NULL, NULL, N'Đang chờ khách gửi danh sách sách'),
+        (N'TST-MT-0017', '2026-10-30T11:50:00', N'TST-CUS-0019', N'Sent', 1, '2026-10-30T12:50:00', NULL, NULL, NULL, NULL),
+        (N'TST-MT-0018', '2026-10-31T15:15:00', N'TST-CUS-0020', N'Confirmed', 1, '2026-10-31T16:15:00', '2026-11-01T10:00:00', NULL, NULL, N'Đơn cuối tháng 10'),
+        (N'TST-MT-0019', '2026-11-02T10:10:00', N'TST-CUS-0021', N'Draft', 0, NULL, NULL, NULL, NULL, NULL),
+        (N'TST-MT-0020', '2026-11-04T14:00:00', N'TST-CUS-0022', N'Sent', 1, '2026-11-04T15:00:00', NULL, NULL, NULL, N'Báo giá sách tham khảo cho học kỳ II');
+
+    CREATE TABLE #ManualTestLine
+    (
+        OrderNumber nvarchar(30) NOT NULL,
+        BookSku nvarchar(30) NOT NULL,
+        Quantity int NOT NULL,
+        PRIMARY KEY (OrderNumber, BookSku)
+    );
+
+    INSERT INTO #ManualTestLine (OrderNumber, BookSku, Quantity)
+    VALUES
+        (N'TST-MT-0001', N'TST-BK-0001', 10), (N'TST-MT-0001', N'TST-BK-0006', 5),
+        (N'TST-MT-0002', N'TST-BK-0002', 3),
+        (N'TST-MT-0003', N'TST-BK-0003', 2), (N'TST-MT-0003', N'TST-BK-0013', 1),
+        (N'TST-MT-0004', N'TST-BK-0005', 8), (N'TST-MT-0004', N'TST-BK-0010', 6), (N'TST-MT-0004', N'TST-BK-0015', 4),
+        (N'TST-MT-0005', N'TST-BK-0004', 2),
+        (N'TST-MT-0006', N'TST-BK-0007', 4), (N'TST-MT-0006', N'TST-BK-0009', 3),
+        (N'TST-MT-0007', N'TST-BK-0011', 1),
+        (N'TST-MT-0008', N'TST-BK-0012', 5), (N'TST-MT-0008', N'TST-BK-0017', 5),
+        (N'TST-MT-0009', N'TST-BK-0014', 2), (N'TST-MT-0009', N'TST-BK-0019', 1),
+        (N'TST-MT-0010', N'TST-BK-0018', 12),
+        (N'TST-MT-0011', N'TST-BK-0020', 6), (N'TST-MT-0011', N'TST-BK-0025', 6),
+        (N'TST-MT-0012', N'TST-BK-0021', 3),
+        (N'TST-MT-0013', N'TST-BK-0022', 2), (N'TST-MT-0013', N'TST-BK-0023', 2), (N'TST-MT-0013', N'TST-BK-0026', 1),
+        (N'TST-MT-0014', N'TST-BK-0027', 15),
+        (N'TST-MT-0015', N'TST-BK-0028', 1), (N'TST-MT-0015', N'TST-BK-0029', 2),
+        (N'TST-MT-0016', N'TST-BK-0030', 4),
+        (N'TST-MT-0017', N'TST-BK-0031', 3), (N'TST-MT-0017', N'TST-BK-0033', 3),
+        (N'TST-MT-0018', N'TST-BK-0034', 7), (N'TST-MT-0018', N'TST-BK-0035', 2),
+        (N'TST-MT-0019', N'TST-BK-0036', 1), (N'TST-MT-0019', N'TST-BK-0037', 1),
+        (N'TST-MT-0020', N'TST-BK-0038', 20), (N'TST-MT-0020', N'TST-BK-0039', 10);
+
+    INSERT INTO dbo.SalesOrders
+    (
+        OrderNumber, OrderDate, CustomerId, CustomerNameSnapshot,
+        CreatedByUserId, CreatedAt, UpdatedAt, Status, Note, TotalAmount,
+        SentByUserId, SentAt, ConfirmedByUserId, ConfirmedAt,
+        CancelledByUserId, CancelledAt, CancellationReason
+    )
+    SELECT
+        mt.OrderNumber,
+        DATEADD(hour, -7, mt.LocalOrderDate),
+        customer.CustomerId,
+        customer.CustomerName,
+        @TestActorUserId,
+        DATEADD(hour, -7, mt.LocalOrderDate),
+        NULL,
+        mt.Status,
+        mt.Note,
+        totals.TotalAmount,
+        CASE WHEN mt.WasSent = 1 THEN @TestActorUserId END,
+        DATEADD(hour, -7, mt.LocalSentAt),
+        CASE WHEN mt.LocalConfirmedAt IS NOT NULL THEN @TestActorUserId END,
+        DATEADD(hour, -7, mt.LocalConfirmedAt),
+        CASE WHEN mt.LocalCancelledAt IS NOT NULL THEN @TestActorUserId END,
+        DATEADD(hour, -7, mt.LocalCancelledAt),
+        mt.CancellationReason
+    FROM #ManualTestOrder AS mt
+    INNER JOIN dbo.Customers AS customer
+        ON customer.CustomerCode = mt.CustomerCode
+    CROSS APPLY
+    (
+        SELECT SUM(line.Quantity * book.SalePrice) AS TotalAmount
+        FROM #ManualTestLine AS line
+        INNER JOIN dbo.Books AS book ON book.SKU = line.BookSku
+        WHERE line.OrderNumber = mt.OrderNumber
+    ) AS totals
+    WHERE NOT EXISTS
+    (
+        SELECT 1 FROM dbo.SalesOrders AS existing WHERE existing.OrderNumber = mt.OrderNumber
+    );
+
+    INSERT INTO dbo.SalesOrderLines
+        (SalesOrderId, BookId, SKUSnapshot, BookTitleSnapshot, Quantity, UnitPrice, LineTotal)
+    SELECT
+        orderHeader.SalesOrderId,
+        book.BookId,
+        book.SKU,
+        book.BookTitle,
+        line.Quantity,
+        book.SalePrice,
+        line.Quantity * book.SalePrice
+    FROM #ManualTestLine AS line
+    INNER JOIN dbo.SalesOrders AS orderHeader ON orderHeader.OrderNumber = line.OrderNumber
+    INNER JOIN dbo.Books AS book ON book.SKU = line.BookSku
+    WHERE NOT EXISTS
+    (
+        SELECT 1
+        FROM dbo.SalesOrderLines AS existing
+        WHERE existing.SalesOrderId = orderHeader.SalesOrderId
+          AND existing.SKUSnapshot = book.SKU
+    );
+
+    INSERT INTO dbo.AuditLogs
+        (UserId, Action, EntityName, EntityId, OldValue, NewValue, Reason, CreatedAt)
+    SELECT
+        @TestActorUserId,
+        eventData.Action,
+        N'SalesOrder',
+        mt.OrderNumber,
+        eventData.OldValue,
+        eventData.NewValue,
+        eventData.Reason,
+        DATEADD(hour, -7, eventData.LocalAt)
+    FROM #ManualTestOrder AS mt
+    INNER JOIN dbo.SalesOrders AS orderHeader ON orderHeader.OrderNumber = mt.OrderNumber
+    CROSS APPLY
+    (
+        VALUES
+            (N'Created', NULL, CONCAT(N'Status=Draft; Total=', orderHeader.TotalAmount), N'TESTDATA: manual test document', mt.LocalOrderDate),
+            (N'Sent', N'Draft', N'Sent', N'TESTDATA: manual test status event', mt.LocalSentAt),
+            (N'Confirmed', N'Sent', N'Confirmed', N'TESTDATA: manual test status event', mt.LocalConfirmedAt),
+            (N'Cancelled', CASE WHEN mt.WasSent = 1 THEN N'Sent' ELSE N'Draft' END, N'Cancelled', mt.CancellationReason, mt.LocalCancelledAt)
+    ) AS eventData(Action, OldValue, NewValue, Reason, LocalAt)
+    WHERE eventData.LocalAt IS NOT NULL
+      AND NOT EXISTS
+      (
+          SELECT 1
+          FROM dbo.AuditLogs AS existing
+          WHERE existing.EntityName = N'SalesOrder'
+            AND existing.EntityId = mt.OrderNumber
+            AND existing.Action = eventData.Action
       );
 
     COMMIT TRANSACTION;

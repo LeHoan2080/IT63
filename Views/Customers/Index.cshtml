@@ -10,7 +10,7 @@
         <h1 class="page-title">Khách hàng</h1>
         <p class="page-subtitle">Danh bạ khách hàng và lịch sử bán hàng.</p>
     </div>
-    @if (User.IsInRole("Administrator") || User.IsInRole("SalesStaff"))
+    @if (User.IsInRole("Administrator") || User.IsInRole("SalesManager") || User.IsInRole("SalesStaff"))
     {
         <a asp-action="Create" class="btn btn-primary">＋ Thêm khách hàng</a>
     }

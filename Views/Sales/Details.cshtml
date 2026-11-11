@@ -4,7 +4,8 @@
     ViewData["Title"] = Model.OrderNumber;
     var culture = System.Globalization.CultureInfo.GetCultureInfo("vi-VN");
     var canManage = ViewData["CanManageOrder"] is bool manage && manage;
-    var canCancelConfirmed = ViewData["CanCancelConfirmed"] is bool cancelConfirmed && cancelConfirmed;
+    var canCancel = ViewData["CanCancelOrder"] is bool cancel && cancel;
+    var canConfirm = ViewData["CanConfirmOrder"] is bool confirm && confirm;
     var history = ViewData["OrderHistory"] as List<SalesOrderAuditEventViewModel>
         ?? new List<SalesOrderAuditEventViewModel>();
     var orderLocalTime = (DateTime)ViewData["LocalOrderDate"]!;
@@ -48,16 +49,14 @@
                 <button type="submit" class="btn btn-outline-primary">Đánh dấu đã gửi</button>
             </form>
         }
-        @if (canManage && (Model.Status is "Draft" or "Sent"))
+        @if (canConfirm && (Model.Status is "Draft" or "Sent"))
         {
             <form asp-action="Confirm" asp-route-id="@Model.SalesOrderId" method="post">
                 @Html.AntiForgeryToken()
                 <button type="submit" class="btn btn-primary">Xác nhận</button>
             </form>
         }
-        @if (canManage &&
-             ((Model.Status is "Draft" or "Sent") ||
-              (Model.Status == "Confirmed" && canCancelConfirmed)))
+        @if (canCancel)
         {
             <a asp-action="Cancel" asp-route-id="@Model.SalesOrderId"
                class="btn btn-outline-danger">Hủy chứng từ</a>
@@ -100,8 +99,20 @@
                 @if (Model.Status == "Cancelled")
                 {
                     <div class="col-12">
-                        <div class="detail-label">Lý do hủy</div>
-                        <div>@Model.CancellationReason</div>
+                        <div class="alert alert-danger mb-0">
+                            <div class="detail-label">Lý do hủy</div>
+                            <div class="note-content fw-semibold">@(Model.CancellationReason ?? "(Không có lý do)")</div>
+                            <div class="small mt-2">
+                                @if (ViewData["CancelledByName"] is string cancelledBy)
+                                {
+                                    <span>Người hủy: <strong>@cancelledBy</strong></span>
+                                }
+                                @if (ViewData["LocalCancelledAt"] is DateTime cancelledAt)
+                                {
+                                    <span class="ms-3">Thời gian: @cancelledAt.ToString("dd/MM/yyyy HH:mm")</span>
+                                }
+                            </div>
+                        </div>
                     </div>
                 }
             </div>

@@ -15,6 +15,7 @@ namespace BookSalesCore.Controllers;
 public class UsersController : Controller
 {
     private const string AdministratorRole = "Administrator";
+    private const string SalesManagerRole = "SalesManager";
     private const string SalesStaffRole = "SalesStaff";
 
     private readonly ApplicationDbContext _context;
@@ -140,7 +141,9 @@ public class UsersController : Controller
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> ChangeRole(string id, string role, string? reason)
     {
-        if (role != AdministratorRole && role != SalesStaffRole)
+        if (role != AdministratorRole &&
+            role != SalesManagerRole &&
+            role != SalesStaffRole)
         {
             TempData["ErrorMessage"] = "Vai trò được chọn không hợp lệ.";
             return RedirectToAction(nameof(Index));

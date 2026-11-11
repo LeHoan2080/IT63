@@ -19,7 +19,7 @@
         <h1 class="page-title">Báo giá / Đơn bán</h1>
         <p class="page-subtitle">Theo dõi vòng đời báo giá và đơn bán hàng.</p>
     </div>
-    @if (User.IsInRole("Administrator") || User.IsInRole("SalesStaff"))
+    @if (User.IsInRole("Administrator") || User.IsInRole("SalesManager") || User.IsInRole("SalesStaff"))
     {
         <a asp-action="Create" class="btn btn-primary">＋ Tạo báo giá</a>
     }
@@ -94,6 +94,7 @@
                         <th>Ngày lập</th>
                         <th>Khách hàng</th>
                         <th>Trạng thái</th>
+                        <th>Lý do hủy</th>
                         <th class="text-end">Tổng tiền</th>
                     </tr>
                 </thead>
@@ -115,6 +116,20 @@
                                 <span class="status-badge status-@order.Status.ToLowerInvariant()">
                                     @GetStatusText(order.Status)
                                 </span>
+                            </td>
+                            <td style="max-width: 260px;">
+                                @if (order.Status == "Cancelled" &&
+                                     !string.IsNullOrWhiteSpace(order.CancellationReason))
+                                {
+                                    <div class="text-danger small text-truncate"
+                                         title="@order.CancellationReason">
+                                        @order.CancellationReason
+                                    </div>
+                                }
+                                else
+                                {
+                                    <span class="text-muted">—</span>
+                                }
                             </td>
                             <td class="text-end text-nowrap">@order.TotalAmount.ToString("N0", culture) ₫</td>
                         </tr>

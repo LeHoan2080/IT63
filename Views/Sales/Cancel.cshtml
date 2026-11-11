@@ -7,9 +7,18 @@
 
 <div class="mb-4">
     <div class="text-muted small mb-1">Bán hàng / Chứng từ</div>
-    <h1 class="page-title mb-1">Hủy chứng từ bán hàng</h1>
+    <h1 class="page-title mb-1">Hủy chứng từ @Model.OrderNumber</h1>
     <p class="text-muted mb-0">Hủy chứng từ cần có lý do và không thể hoàn tác.</p>
 </div>
+
+@if (Model.Status == "Confirmed")
+{
+    <div class="alert alert-danger">
+        <strong>Đơn này đã được xác nhận.</strong>
+        Hủy đơn đã xác nhận sẽ loại đơn khỏi doanh số. Lý do hủy sẽ được lưu trên đơn hàng
+        và trong nhật ký hệ thống.
+    </div>
+}
 
 <form asp-action="Cancel" method="post" class="card"
       onsubmit="if (!this.checkValidity()) { this.reportValidity(); return false; } return confirm('Chứng từ sẽ được hủy và không thể khôi phục. Bạn có muốn tiếp tục?');">

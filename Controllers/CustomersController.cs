@@ -10,7 +10,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace BookSalesCore.Controllers;
 
-[Authorize(Roles = "Administrator,SalesStaff")]
+[Authorize(Roles = "Administrator,SalesManager,SalesStaff")]
 public class CustomersController : Controller
 {
     private readonly ApplicationDbContext _context;
@@ -181,7 +181,8 @@ public class CustomersController : Controller
             .AsNoTracking()
             .Where(order => order.CustomerId == id);
 
-        if (!User.IsInRole("Administrator"))
+        if (!User.IsInRole("Administrator") &&
+            !User.IsInRole("SalesManager"))
         {
             var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
             if (string.IsNullOrWhiteSpace(userId))
@@ -267,7 +268,7 @@ public class CustomersController : Controller
         return View(model);
     }
 
-    [Authorize(Roles = "Administrator,SalesStaff")]
+    [Authorize(Roles = "Administrator,SalesManager,SalesStaff")]
     public IActionResult Create()
     {
         return View(new CustomerCreateViewModel());
@@ -275,7 +276,7 @@ public class CustomersController : Controller
 
     [HttpPost]
     [ValidateAntiForgeryToken]
-    [Authorize(Roles = "Administrator,SalesStaff")]
+    [Authorize(Roles = "Administrator,SalesManager,SalesStaff")]
     public async Task<IActionResult> Create(CustomerCreateViewModel model)
     {
         if (!ModelState.IsValid)
@@ -318,7 +319,7 @@ public class CustomersController : Controller
         return RedirectToAction(nameof(Index));
     }
 
-    [Authorize(Roles = "Administrator,SalesStaff")]
+    [Authorize(Roles = "Administrator,SalesManager,SalesStaff")]
     public async Task<IActionResult> Edit(long id)
     {
         var customer = await _context.Customers
@@ -351,7 +352,7 @@ public class CustomersController : Controller
 
     [HttpPost]
     [ValidateAntiForgeryToken]
-    [Authorize(Roles = "Administrator,SalesStaff")]
+    [Authorize(Roles = "Administrator,SalesManager,SalesStaff")]
     public async Task<IActionResult> Edit(
         long id,
         CustomerEditViewModel model)

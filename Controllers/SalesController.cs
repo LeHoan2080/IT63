@@ -12,7 +12,7 @@ using System.Security.Claims;
 
 namespace BookSalesCore.Controllers;
 
-[Authorize(Roles = "Administrator,SalesStaff")]
+[Authorize(Roles = "Administrator,SalesManager,SalesStaff")]
 public class SalesController : Controller
 {
     private const decimal MaximumVndAmount = 999999999999999999m;
@@ -53,7 +53,7 @@ public class SalesController : Controller
             .Include(x => x.Customer)
             .AsQueryable();
 
-        // Nhân viên chỉ xem chứng từ do mình tạo.
+        // Nhân viên chỉ xem chứng từ do mình tạo; quản lý bán hàng xem toàn bộ.
         if (User.IsInRole("SalesStaff"))
         {
             var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
@@ -65,7 +65,8 @@ public class SalesController : Controller
 
             query = query.Where(x => x.CreatedByUserId == userId);
         }
-        else if (!User.IsInRole("Administrator"))
+        else if (!User.IsInRole("Administrator") &&
+                 !User.IsInRole("SalesManager"))
         {
             return Forbid();
         }
@@ -218,7 +219,8 @@ public class SalesController : Controller
 
             query = query.Where(order => order.CreatedByUserId == userId);
         }
-        else if (!User.IsInRole("Administrator"))
+        else if (!User.IsInRole("Administrator") &&
+                 !User.IsInRole("SalesManager"))
         {
             return Forbid();
         }
@@ -539,6 +541,7 @@ public class SalesController : Controller
     private bool CanCreateSalesOrder()
     {
         return User.IsInRole("Administrator") ||
+               User.IsInRole("SalesManager") ||
                User.IsInRole("SalesStaff");
     }
 
@@ -564,7 +567,8 @@ public class SalesController : Controller
 
             query = query.Where(x => x.CreatedByUserId == userId);
         }
-        else if (!User.IsInRole("Administrator"))
+        else if (!User.IsInRole("Administrator") &&
+                 !User.IsInRole("SalesManager"))
         {
             return Forbid();
         }
@@ -579,10 +583,15 @@ public class SalesController : Controller
 
         ViewData["CanManageOrder"] =
             User.IsInRole("Administrator") ||
+            User.IsInRole("SalesManager") ||
             (User.IsInRole("SalesStaff") &&
              order.CreatedByUserId == User.FindFirstValue(ClaimTypes.NameIdentifier));
-
-        ViewData["CanCancelConfirmed"] = User.IsInRole("Administrator");
+        ViewData["CanConfirmOrder"] = CanConfirmOrder(
+            order,
+            User.FindFirstValue(ClaimTypes.NameIdentifier));
+        ViewData["CanCancelOrder"] = CanCancelOrder(
+            order,
+            User.FindFirstValue(ClaimTypes.NameIdentifier) ?? string.Empty);
         ViewData["LocalOrderDate"] = TimeZoneInfo.ConvertTimeFromUtc(
             DateTime.SpecifyKind(order.OrderDate, DateTimeKind.Utc),
             GetVietnamTimeZone());
@@ -591,6 +600,23 @@ public class SalesController : Controller
             .Select(user => user.UserName)
             .FirstOrDefaultAsync()
             ?? "Tài khoản không còn hoạt động";
+
+        if (order.Status == "Cancelled")
+        {
+            ViewData["CancelledByName"] = order.CancelledByUserId == null
+                ? null
+                : await _context.AppUsers
+                    .Where(user => user.Id == order.CancelledByUserId)
+                    .Select(user => user.UserName)
+                    .FirstOrDefaultAsync()
+                  ?? "Tài khoản không còn hoạt động";
+
+            ViewData["LocalCancelledAt"] = order.CancelledAt is DateTime cancelledAt
+                ? TimeZoneInfo.ConvertTimeFromUtc(
+                    DateTime.SpecifyKind(cancelledAt, DateTimeKind.Utc),
+                    GetVietnamTimeZone())
+                : null;
+        }
 
         var localTimeZone = GetVietnamTimeZone();
         var history = await (
@@ -912,7 +938,7 @@ public class SalesController : Controller
         }
     }
 
-    // Chỉ quản trị viên được sửa mọi bản nháp;
+    // Quản trị viên và quản lý bán hàng được sửa mọi bản nháp (kể cả của nhân viên);
     // nhân viên chỉ được sửa bản nháp do mình tạo.
     private async Task<SalesOrder?> GetEditableDraftAsync(long id)
     {
@@ -931,7 +957,8 @@ public class SalesController : Controller
 
             query = query.Where(x => x.CreatedByUserId == userId);
         }
-        else if (!User.IsInRole("Administrator"))
+        else if (!User.IsInRole("Administrator") &&
+                 !User.IsInRole("SalesManager"))
         {
             return null;
         }
@@ -1076,9 +1103,12 @@ public class SalesController : Controller
             return NotFound();
 
         if (!User.IsInRole("Administrator") &&
+            !User.IsInRole("SalesManager") &&
             !User.IsInRole("SalesStaff"))
             return Forbid();
 
+        // Quản lý bán hàng được đánh dấu đã gửi mọi chứng từ (kể cả của nhân viên);
+        // nhân viên chỉ thao tác trên chứng từ do mình tạo.
         if (User.IsInRole("SalesStaff") &&
             order.CreatedByUserId != userId)
             return Forbid();
@@ -1171,11 +1201,13 @@ public class SalesController : Controller
             return NotFound();
 
         if (!User.IsInRole("Administrator") &&
+            !User.IsInRole("SalesManager") &&
             !User.IsInRole("SalesStaff"))
             return Forbid();
 
-        if (User.IsInRole("SalesStaff") &&
-            order.CreatedByUserId != userId)
+        // Quản lý bán hàng được xác nhận mọi chứng từ (kể cả của nhân viên);
+        // nhân viên chỉ xác nhận chứng từ do mình tạo.
+        if (!CanConfirmOrder(order, userId))
             return Forbid();
 
         if (order.Status == "Confirmed")
@@ -1292,7 +1324,9 @@ public class SalesController : Controller
 
         return View(new SalesOrderCancelViewModel
         {
-            SalesOrderId = id
+            SalesOrderId = id,
+            OrderNumber = order.OrderNumber,
+            Status = order.Status
         });
     }
 
@@ -1316,6 +1350,9 @@ public class SalesController : Controller
 
         if (!CanCancelOrder(order, userId))
             return Forbid();
+
+        model.OrderNumber = order.OrderNumber;
+        model.Status = order.Status;
 
         if (!ModelState.IsValid)
             return View(model);
@@ -1403,9 +1440,23 @@ public class SalesController : Controller
         }
     }
 
+    private bool CanConfirmOrder(SalesOrder order, string? userId)
+    {
+        if (User.IsInRole("Administrator") || User.IsInRole("SalesManager"))
+        {
+            return true;
+        }
+
+        return User.IsInRole("SalesStaff") &&
+               !string.IsNullOrEmpty(userId) &&
+               order.CreatedByUserId == userId;
+    }
+
     private bool CanCancelOrder(SalesOrder order, string userId)
     {
-        if (User.IsInRole("Administrator"))
+        // Quản trị viên và quản lý bán hàng được hủy mọi chứng từ
+        // Nháp/Đã gửi/Đã xác nhận (kể cả của nhân viên).
+        if (User.IsInRole("Administrator") || User.IsInRole("SalesManager"))
         {
             return order.Status is
                 "Draft" or "Sent" or "Confirmed";

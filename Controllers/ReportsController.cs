@@ -9,7 +9,7 @@ using System.Security.Claims;
 
 namespace BookSalesCore.Controllers;
 
-[Authorize(Roles = "Administrator,SalesStaff")]
+[Authorize(Roles = "Administrator,SalesManager,SalesStaff")]
 public class ReportsController : Controller
 {
     private readonly ApplicationDbContext _context;
@@ -66,9 +66,10 @@ public class ReportsController : Controller
         var utcEndExclusive = ConvertVietnamDateToUtc(endDate.AddDays(1));
 
         var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-        var isAdministrator = User.IsInRole("Administrator");
+        var canViewAllOrders =
+            User.IsInRole("Administrator") || User.IsInRole("SalesManager");
 
-        if (!isAdministrator && string.IsNullOrWhiteSpace(userId))
+        if (!canViewAllOrders && string.IsNullOrWhiteSpace(userId))
         {
             return Forbid();
         }
@@ -76,7 +77,7 @@ public class ReportsController : Controller
         IQueryable<SalesOrder> scopedOrders =
             _context.SalesOrders.AsNoTracking();
 
-        if (!isAdministrator)
+        if (!canViewAllOrders)
         {
             scopedOrders = scopedOrders.Where(
                 order => order.CreatedByUserId == userId);
